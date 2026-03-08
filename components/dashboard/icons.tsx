@@ -225,3 +225,22 @@ export function ChevronDownIcon({ className }: IconProps) {
     </IconFrame>
   );
 }
+
+export function MenuIcon({ className }: IconProps) {
+  return (
+    <IconFrame className={className}>
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <line x1="4" y1="18" x2="20" y2="18" />
+    </IconFrame>
+  );
+}
+
+export function CloseIcon({ className }: IconProps) {
+  return (
+    <IconFrame className={className}>
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </IconFrame>
+  );
+}

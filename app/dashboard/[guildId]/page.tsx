@@ -190,11 +190,15 @@ export default async function GuildOverviewPage({
   ] as const;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-fade-in">
       {/* Summary Stats */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {metrics.map((metric) => (
-          <div key={metric.label} className="metric-card bg-[var(--bg-surface)] border-[var(--line)]">
+        {metrics.map((metric, idx) => (
+          <div 
+            key={metric.label} 
+            className="metric-card bg-[var(--bg-surface)] border-[var(--line)] animate-slide-up"
+            style={{ animationDelay: `${idx * 0.05}s` }}
+          >
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm font-medium text-[var(--text-muted)]">{metric.label}</p>
@@ -211,7 +215,7 @@ export default async function GuildOverviewPage({
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Recent Cases Table */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="table-panel">
+          <div className="table-panel animate-slide-up" style={{ animationDelay: "0.2s" }}>
             <div className="flex items-center justify-between p-6 border-b border-[var(--line)]">
               <h2 className="text-lg font-semibold text-white">Recent Cases</h2>
               <Link
@@ -221,8 +225,8 @@ export default async function GuildOverviewPage({
                 View All <ArrowRightIcon className="h-4 w-4" />
               </Link>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto scrollbar-thin">
+              <table className="w-full text-left text-sm min-w-[600px]">
                 <thead>
                   <tr className="text-[var(--text-faint)] font-medium uppercase tracking-wider text-[10px] border-b border-[var(--line)]">
                     <th className="px-6 py-4">Case ID</th>
@@ -262,13 +266,13 @@ export default async function GuildOverviewPage({
           </div>
 
           {/* Warnings Overview Chart */}
-          <div className="table-panel p-6">
+          <div className="table-panel p-6 animate-slide-up" style={{ animationDelay: "0.3s" }}>
             <h2 className="text-lg font-semibold text-white mb-6">Warnings Overview</h2>
-            <div className="flex items-end gap-3 h-[200px]">
+            <div className="flex items-end gap-2 sm:gap-3 h-[200px]">
               {activityBars.map((bar) => (
                 <div key={bar.label} className="flex-1 flex flex-col items-center gap-3">
                   <div 
-                    className={`w-full max-w-[40px] rounded-t-lg bg-gradient-to-t ${bar.color}`}
+                    className={`w-full max-w-[40px] rounded-t-lg bg-gradient-to-t ${bar.color} transition-all duration-1000 ease-out`}
                     style={{ height: `${(bar.value / maxActivity) * 100}%` }}
                   />
                   <p className="text-[10px] font-bold text-[var(--text-faint)] uppercase tracking-tighter">
@@ -283,7 +287,7 @@ export default async function GuildOverviewPage({
         {/* Sidebar Panels */}
         <div className="space-y-6">
           {/* AutoMod Settings */}
-          <div className="table-panel">
+          <div className="table-panel animate-slide-up" style={{ animationDelay: "0.4s" }}>
             <div className="p-6 border-b border-[var(--line)]">
               <h2 className="text-lg font-semibold text-white">AutoMod Settings</h2>
             </div>
@@ -301,7 +305,7 @@ export default async function GuildOverviewPage({
           </div>
 
           {/* Active Appeals / Review Queue */}
-          <div className="table-panel">
+          <div className="table-panel animate-slide-up" style={{ animationDelay: "0.5s" }}>
             <div className="p-6 border-b border-[var(--line)]">
               <h2 className="text-lg font-semibold text-white">Review Queue</h2>
             </div>

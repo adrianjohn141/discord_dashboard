@@ -44,8 +44,8 @@ export default async function DashboardIndexPage() {
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="table-panel p-6">
+    <div className="space-y-4 animate-fade-in">
+      <div className="table-panel p-6 animate-slide-up">
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-[var(--primary)]">
@@ -73,8 +73,10 @@ export default async function DashboardIndexPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        {guilds.map((guild) => (
-          <GuildCard key={guild.guildId} guild={guild} />
+        {guilds.map((guild, idx) => (
+          <div key={guild.guildId} className="animate-slide-up" style={{ animationDelay: `${(idx + 1) * 0.05}s` }}>
+            <GuildCard guild={guild} />
+          </div>
         ))}
       </div>
     </div>
