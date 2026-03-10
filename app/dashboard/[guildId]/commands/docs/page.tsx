@@ -165,6 +165,34 @@ export default async function CustomCommandsDocsPage({
               </div>
             </div>
           </div>
+
+          <div className="table-panel p-6">
+            <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+              <TerminalIcon className="h-5 w-5 text-[var(--primary)]" />
+              Commands with Arguments
+            </h3>
+            <p className="text-sm text-[var(--text-muted)] mb-4">
+              You can pass extra information to your commands using arguments.
+            </p>
+
+            <div className="space-y-4">
+              <div className="p-4 bg-[var(--bg-surface-elevated)] border border-[var(--line)] rounded-xl">
+                <h4 className="font-bold text-white text-sm mb-2">Example: A Dynamic Greet Command</h4>
+                <div className="space-y-2 text-sm">
+                  <p><span className="text-[var(--text-faint)]">Command Name:</span> <code className="text-white">greet</code></p>
+                  <p><span className="text-[var(--text-faint)]">Response:</span> <code className="text-[var(--primary)]">Hello {"{arg:1}"}! Welcome to {"{server}"}. You are our {"{arg:2}"} guest today.</code></p>
+                  <div className="pt-2 border-t border-[var(--line)]">
+                    <p className="text-[var(--text-faint)] italic">When used in Discord:</p>
+                    <p><code className="text-white">!greet Adrian 5th</code></p>
+                    <p className="text-[var(--primary)]">&rarr; Hello Adrian! Welcome to MyServer. You are our 5th guest today.</p>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-[var(--text-faint)]">
+                Note: Arguments are separated by spaces. Use {"{arg:1}"} for the first word, {"{arg:2}"} for the second, and so on. Use {"{args}"} to get everything after the command name.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="space-y-6">
