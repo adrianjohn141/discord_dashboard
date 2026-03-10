@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   title: "Akbash Dashboard",
   description:
     "Discord moderation dashboard for configuration, automation, logs, and bot status.",
+  icons: {
+    icon: "/Akbash -1.png",
+  },
 };
 
 export default function RootLayout({
