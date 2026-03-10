@@ -131,6 +131,25 @@ export interface RoleLockRecord {
   createdAt: string | null;
 }
 
+export interface FeedbackCommentRecord {
+  id: string;
+  feedbackId: string;
+  content: string;
+  createdAt: string;
+  isAdmin: boolean;
+}
+
+export interface FeedbackRecord {
+  id: string;
+  content: string;
+  status: "open" | "done";
+  createdAt: string;
+  starsCount: number;
+  hasStarred: boolean;
+  isAuthor: boolean;
+  comments: FeedbackCommentRecord[];
+}
+
 export interface DashboardAuditLogRecord {
   id: string;
   actorUserId: string;

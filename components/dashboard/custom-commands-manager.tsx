@@ -16,6 +16,7 @@ export default function CustomCommandsManager({ guildId }: CustomCommandsManager
   const [editingCommand, setEditingCommand] = useState<CustomCommandRecord | null>(null);
   const [formData, setFormData] = useState({ name: "", response: "", adminOnly: false, isEmbed: false });
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [commandToDelete, setCommandToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCommands();
@@ -97,19 +98,24 @@ export default function CustomCommandsManager({ guildId }: CustomCommandsManager
     }
   };
 
-  const handleDelete = async (name: string) => {
-    if (!confirm(`Are you sure you want to delete the command !${name}?`)) return;
+  const handleDelete = (name: string) => {
+    setCommandToDelete(name);
+  };
 
+  const confirmDelete = async () => {
+    if (!commandToDelete) return;
     try {
-      const res = await fetch(`/api/guilds/${guildId}/commands?name=${name}`, {
+      const res = await fetch(`/api/guilds/${guildId}/commands?name=${commandToDelete}`, {
         method: "DELETE",
       });
 
       if (res.ok) {
-        setCommands(commands.filter((c) => c.name !== name));
+        setCommands(commands.filter((c) => c.name !== commandToDelete));
       }
     } catch (err) {
       console.error("Failed to delete command:", err);
+    } finally {
+      setCommandToDelete(null);
     }
   };
 
@@ -314,12 +320,13 @@ export default function CustomCommandsManager({ guildId }: CustomCommandsManager
                     >
                       <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.isEmbed ? 'translate-x-6' : 'translate-x-1'}`} />
                     </button>
-                    </div>
-                    </div>
-                    </form>
-                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
 
-                    <div className="p-6 border-t border-[var(--line)] flex gap-3 flex-shrink-0 bg-[var(--bg-surface)]">              <button
+            <div className="p-6 border-t border-[var(--line)] flex gap-3 flex-shrink-0 bg-[var(--bg-surface)]">
+              <button
                 type="button"
                 onClick={handleCloseModal}
                 className="flex-1 py-3 px-4 bg-[var(--bg-surface-elevated)] text-white font-bold rounded-xl border border-[var(--line)] hover:bg-[var(--line)] transition-colors"
@@ -334,6 +341,36 @@ export default function CustomCommandsManager({ guildId }: CustomCommandsManager
               >
                 {isSaving && <LoaderIcon className="h-4 w-4 animate-spin" />}
                 {editingCommand ? "Update Command" : "Create Command"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {commandToDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-[var(--bg-surface)] border border-[var(--line)] rounded-2xl shadow-2xl overflow-hidden p-6 text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-500/10 mb-4">
+              <TrashIcon className="h-6 w-6 text-red-500" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Delete Command</h3>
+            <p className="text-sm text-[var(--text-muted)] mb-6">
+              Are you sure you want to delete the command <strong className="text-white">!{commandToDelete}</strong>? This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setCommandToDelete(null)}
+                className="flex-1 py-2.5 px-4 bg-[var(--bg-surface-elevated)] text-white font-bold rounded-xl border border-[var(--line)] hover:bg-[var(--line)] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="flex-1 py-2.5 px-4 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 transition-colors shadow-[0_0_15px_rgba(239,68,68,0.3)]"
+              >
+                Delete
               </button>
             </div>
           </div>

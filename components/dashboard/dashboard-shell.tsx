@@ -37,7 +37,10 @@ interface NavigationItem {
 }
 
 function buildNavigation(activeGuildId: string | null): NavigationItem[] {
-  const items: NavigationItem[] = [{ href: "/dashboard", label: "Guild Management", icon: GuildsIcon }];
+  const items: NavigationItem[] = [
+    { href: "/dashboard", label: "Guild Management", icon: GuildsIcon },
+    { href: "/dashboard/feedback", label: "Feedback", icon: LogsIcon } // Reusing LogsIcon for now
+  ];
 
   if (!activeGuildId) {
     return items;

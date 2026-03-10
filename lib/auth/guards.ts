@@ -73,3 +73,9 @@ export function normalizeNextPath(next: string | null) {
 
   return next;
 }
+
+export function isGlobalAdmin(user: User): boolean {
+  // Check against the Discord user ID stored in user metadata
+  const discordId = user.user_metadata?.sub || user.user_metadata?.provider_id;
+  return discordId === "1434200062514172110";
+}
