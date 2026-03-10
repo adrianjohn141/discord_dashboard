@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 import {
   LoaderIcon,
@@ -11,6 +11,7 @@ import {
   XIcon,
 } from "@/components/dashboard/icons";
 import type { CustomCommandRecord } from "@/types/dashboard";
+import EmbedBuilder, { EmbedPreview, EmbedData } from "./embed-builder";
 
 interface CustomCommandsManagerProps {
   guildId: string;
@@ -45,13 +46,17 @@ export default function CustomCommandsManager({
   const [commands, setCommands] = useState<CustomCommandRecord[]>(initialCommands);
   const [isSaving, setIsSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEmbedBuilderOpen, setIsEmbedBuilderOpen] = useState(false);
   const [editingCommand, setEditingCommand] = useState<CustomCommandRecord | null>(null);
+  
   const [formData, setFormData] = useState({
     name: "",
-    response: "",
+    textContent: "",
+    embedData: null as string | null,
     adminOnly: false,
     isEmbed: false,
   });
+  
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [commandToDelete, setCommandToDelete] = useState<string | null>(null);
 
@@ -72,15 +77,36 @@ export default function CustomCommandsManager({
   const handleOpenModal = (command?: CustomCommandRecord) => {
     if (command) {
       setEditingCommand(command);
+      
+      let textContent = command.response;
+      let embedData = null;
+
+      if (command.isEmbed) {
+        try {
+          const parsed = JSON.parse(command.response);
+          if (parsed.content !== undefined || parsed.embed !== undefined) {
+            textContent = parsed.content || "";
+            embedData = parsed.embed ? JSON.stringify(parsed.embed) : null;
+          } else {
+            // Legacy embed format
+            textContent = "";
+            embedData = JSON.stringify(parsed);
+          }
+        } catch {
+          // If JSON parse fails, keep it as raw text
+        }
+      }
+
       setFormData({
         name: command.name,
-        response: command.response,
+        textContent,
+        embedData,
         adminOnly: command.adminOnly,
         isEmbed: command.isEmbed,
       });
     } else {
       setEditingCommand(null);
-      setFormData({ name: "", response: "", adminOnly: false, isEmbed: false });
+      setFormData({ name: "", textContent: "", embedData: null, adminOnly: false, isEmbed: false });
     }
 
     setErrorMsg(null);
@@ -90,24 +116,39 @@ export default function CustomCommandsManager({
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingCommand(null);
-    setFormData({ name: "", response: "", adminOnly: false, isEmbed: false });
+    setFormData({ name: "", textContent: "", embedData: null, adminOnly: false, isEmbed: false });
     setErrorMsg(null);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!formData.name || !formData.response) {
+    if (!formData.name) {
+      return;
+    }
+
+    if (!formData.textContent && !formData.embedData) {
+      setErrorMsg("Command must have either response text or an embed.");
       return;
     }
 
     setErrorMsg(null);
 
-    if (formData.isEmbed) {
+    let finalResponse = formData.textContent;
+    let isEmbed = false;
+
+    if (formData.embedData) {
       try {
-        JSON.parse(formData.response);
+        const embedObj = JSON.parse(formData.embedData);
+        if (Object.keys(embedObj).length > 0) {
+          isEmbed = true;
+          finalResponse = JSON.stringify({
+            content: formData.textContent,
+            embed: embedObj,
+          });
+        }
       } catch {
-        setErrorMsg("Invalid embed format. Please provide valid JSON.");
+        setErrorMsg("Invalid embed format. Please check the embed builder.");
         return;
       }
     }
@@ -118,7 +159,12 @@ export default function CustomCommandsManager({
       const response = await fetch(`/api/guilds/${guildId}/commands`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          name: formData.name,
+          response: finalResponse,
+          adminOnly: formData.adminOnly,
+          isEmbed: isEmbed
+        }),
       });
 
       if (!response.ok) {
@@ -158,6 +204,22 @@ export default function CustomCommandsManager({
       setCommandToDelete(null);
     }
   };
+
+  const parsedEmbedData = useMemo(() => {
+    if (!formData.embedData) return null;
+    try {
+      return JSON.parse(formData.embedData) as EmbedData;
+    } catch {
+      return null;
+    }
+  }, [formData.embedData]);
+
+  const embedHexColor = useMemo(() => {
+    if (parsedEmbedData?.color) {
+      return "#" + parsedEmbedData.color.toString(16).padStart(6, "0");
+    }
+    return "#5865F2";
+  }, [parsedEmbedData]);
 
   return (
     <div className="space-y-6">
@@ -289,22 +351,39 @@ export default function CustomCommandsManager({
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-bold uppercase tracking-wider text-[var(--text-faint)]">
-                    Response Text
-                  </label>
+                  <div className="mb-2 flex items-center justify-between">
+                    <label className="block text-sm font-bold uppercase tracking-wider text-[var(--text-faint)]">
+                      Response Text
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setIsEmbedBuilderOpen(true)}
+                        className="flex items-center gap-1.5 text-xs font-bold text-[var(--primary)] hover:underline"
+                      >
+                        <PlusIcon className="h-3 w-3" />
+                        {formData.embedData ? "Edit Embed" : "Add Embed"}
+                      </button>
+                      {formData.embedData && (
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, embedData: null }))}
+                          className="flex items-center gap-1.5 text-xs font-bold text-red-500 hover:underline"
+                        >
+                          <TrashIcon className="h-3 w-3" />
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
                   <textarea
-                    required
                     rows={4}
-                    value={formData.response}
+                    value={formData.textContent}
                     onChange={(event) =>
-                      setFormData((current) => ({ ...current, response: event.target.value }))
+                      setFormData((current) => ({ ...current, textContent: event.target.value }))
                     }
                     className="w-full resize-none rounded-xl border border-[var(--line)] bg-[var(--bg-input)] px-4 py-3 font-mono text-sm text-white placeholder-[var(--text-faint)] transition-colors focus:border-[var(--primary)] focus:outline-none"
-                    placeholder={
-                      formData.isEmbed
-                        ? '{\n  "title": "Hello {user.name}!",\n  "description": "Welcome to {server}"\n}'
-                        : "Hello {user}! Welcome to the server."
-                    }
+                    placeholder="Hello {user}! Welcome to the server."
                   />
                   <div className="custom-scrollbar mt-3 flex max-h-32 flex-wrap gap-1.5 overflow-y-auto pr-2">
                     {[
@@ -333,10 +412,6 @@ export default function CustomCommandsManager({
                       "{timestamp}",
                       "{args}",
                       "{arg:1}",
-                      "{arg:2}",
-                      "{arg:3}",
-                      "{arg:4}",
-                      "{arg:5}",
                     ].map((tag) => (
                       <button
                         key={tag}
@@ -344,7 +419,7 @@ export default function CustomCommandsManager({
                         onClick={() =>
                           setFormData((current) => ({
                             ...current,
-                            response: current.response + tag,
+                            textContent: current.textContent + tag,
                           }))
                         }
                         className="rounded border border-[var(--line)] bg-[var(--bg-surface-elevated)] px-2 py-1 text-[10px] text-[var(--text-faint)] transition-colors hover:border-[var(--primary)] hover:text-white"
@@ -353,6 +428,17 @@ export default function CustomCommandsManager({
                       </button>
                     ))}
                   </div>
+
+                  {parsedEmbedData && Object.keys(parsedEmbedData).length > 0 && (
+                    <div className="mt-4">
+                      <div className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--text-faint)]">
+                        Embed Preview
+                      </div>
+                      <div className="pointer-events-none opacity-80">
+                        <EmbedPreview embed={parsedEmbedData} hexColor={embedHexColor} />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-3">
@@ -378,31 +464,6 @@ export default function CustomCommandsManager({
                       <span
                         className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
                           formData.adminOnly ? "translate-x-6" : "translate-x-1"
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between rounded-xl border border-[var(--line)] bg-[var(--bg-surface-elevated)] p-4">
-                    <div>
-                      <h4 className="text-sm font-bold text-white">Send as Embed</h4>
-                      <p className="mt-0.5 text-xs text-[var(--text-faint)]">
-                        Treat the response text as JSON for a rich embed.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFormData((current) => ({ ...current, isEmbed: !current.isEmbed }));
-                        setErrorMsg(null);
-                      }}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        formData.isEmbed ? "bg-[var(--primary)]" : "bg-[var(--line)]"
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
-                          formData.isEmbed ? "translate-x-6" : "translate-x-1"
                         }`}
                       />
                     </button>
@@ -463,6 +524,17 @@ export default function CustomCommandsManager({
           </div>
         </div>
       ) : null}
+
+      {isEmbedBuilderOpen && (
+        <EmbedBuilder
+          initialData={formData.embedData || ""}
+          onSave={(json) => {
+            setFormData((prev) => ({ ...prev, embedData: json }));
+            setIsEmbedBuilderOpen(false);
+          }}
+          onClose={() => setIsEmbedBuilderOpen(false)}
+        />
+      )}
     </div>
   );
 }
