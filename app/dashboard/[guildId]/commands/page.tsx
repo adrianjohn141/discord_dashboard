@@ -1,5 +1,6 @@
 import { TerminalIcon, BookIcon } from "@/components/dashboard/icons";
 import CustomCommandsManager from "@/components/dashboard/custom-commands-manager";
+import BuiltInCommandsList from "@/components/dashboard/builtin-commands-list";
 import { requireDashboardGuildAccess } from "@/lib/dashboard/request-context";
 import { getCustomCommands } from "@/lib/db/queries";
 import Link from "next/link";
@@ -25,16 +26,16 @@ export default async function GuildCommandsPage({
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-[var(--primary)]">
-                Custom Commands
+                Command Management
               </p>
               <h2 className="mt-1 text-3xl font-bold text-white tracking-tight">
-                Command Management
+                Bot Commands
               </h2>
             </div>
           </div>
           <p className="mt-4 max-w-2xl text-base text-[var(--text-muted)] leading-relaxed">
-            View, create, and manage custom text-based commands for your server. 
-            Commands use the guild prefix (default is <code>!</code>) and support dynamic variables.
+            Explore all commands available on this server, including custom text-based responses 
+            and built-in moderation tools.
           </p>
         </div>
         <Link 
@@ -46,7 +47,19 @@ export default async function GuildCommandsPage({
         </Link>
       </div>
 
-      <CustomCommandsManager guildId={guildId} initialCommands={commands} />
+      <div className="space-y-6">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-xl font-bold text-white tracking-tight">Custom Commands</h3>
+          <p className="text-sm text-[var(--text-muted)]">
+            Create and manage custom responses for your server using the guild prefix.
+          </p>
+        </div>
+        <CustomCommandsManager guildId={guildId} initialCommands={commands} />
+      </div>
+
+      <div className="pt-6 border-t border-[var(--line)]">
+        <BuiltInCommandsList />
+      </div>
     </div>
   );
 }

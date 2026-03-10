@@ -123,6 +123,19 @@ export interface CustomCommandRecord {
   updatedAt: string;
 }
 
+export interface BuiltInCommand {
+  name: string;
+  description: string;
+  usage?: string;
+  adminOnly?: boolean;
+}
+
+export interface BuiltInCommandCategory {
+  name: string;
+  id: string;
+  commands: BuiltInCommand[];
+}
+
 
 export interface RoleLockRecord {
   guildId: string;
