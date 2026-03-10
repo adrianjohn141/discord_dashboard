@@ -1,11 +1,9 @@
 import { requireGuildAccess } from "@/lib/auth/guards";
-<<<<<<< HEAD
 import { TerminalIcon, BookIcon } from "@/components/dashboard/icons";
 import CustomCommandsManager from "@/components/dashboard/custom-commands-manager";
 import Link from "next/link";
-=======
 import { TerminalIcon, ArrowRightIcon } from "@/components/dashboard/icons";
->>>>>>> 9d23671e6c334ef7796adfad9e54beb5a095962a
+
 
 export default async function GuildCommandsPage({
   params,
@@ -17,7 +15,6 @@ export default async function GuildCommandsPage({
 
   return (
     <div className="space-y-6">
-<<<<<<< HEAD
       <div className="table-panel p-8 flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-4">
@@ -48,7 +45,6 @@ export default async function GuildCommandsPage({
       </div>
 
       <CustomCommandsManager guildId={guildId} />
-=======
       <div className="table-panel p-8">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-[var(--bg-surface-elevated)] rounded-xl border border-[var(--line)] text-[var(--primary)]">
@@ -108,7 +104,6 @@ export default async function GuildCommandsPage({
           </div>
         </div>
       </div>
->>>>>>> 9d23671e6c334ef7796adfad9e54beb5a095962a
     </div>
   );
 }
