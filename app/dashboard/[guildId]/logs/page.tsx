@@ -1,6 +1,10 @@
 import { LogTable } from "@/components/logs/log-table";
+import { AutoRefresh } from "@/components/dashboard/auto-refresh";
 import { requireDashboardGuildAccess } from "@/lib/dashboard/request-context";
 import { getGuildLogs, getManagedGuildStatus } from "@/lib/db/queries";
+
+// Force Next.js to always fetch fresh data for this route
+export const dynamic = "force-dynamic";
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
   dateStyle: "medium",
@@ -32,11 +36,12 @@ export default async function GuildLogsPage({
 
   return (
     <section className="space-y-5">
+      <AutoRefresh intervalMs={3000} />
       <div className="table-panel rounded-[24px] p-5 md:p-6">
         <p className="text-[11px] uppercase tracking-[0.38em] text-[var(--accent-strong)]">
           Logs And History
         </p>
-        <h2 className="mt-3 text-2xl font-semibold text-white md:text-3xl">
+        <h2 className="mt-2 text-lg font-semibold text-white md:text-xl">
           {status?.name ?? guildId}
         </h2>
         <form className="mt-5 flex flex-wrap items-end gap-3">
@@ -70,18 +75,6 @@ export default async function GuildLogsPage({
           formatDate(log.createdAt),
         ])}
         emptyMessage="No moderation logs match the selected filter."
-      />
-
-      <LogTable
-        title="Warnings"
-        columns={["User", "Moderator", "Reason", "When"]}
-        rows={logs.warnings.map((warning) => [
-          warning.userId,
-          warning.moderatorId,
-          warning.reason,
-          formatDate(warning.createdAt),
-        ])}
-        emptyMessage="No warning records are available for this guild."
       />
     </section>
   );

@@ -65,9 +65,6 @@ export function AutomationForm({
           >
             <div>
               <p className="font-medium text-white">{label}</p>
-              <p className="mt-1 text-sm subtle-copy">
-                Toggle the live database-backed rule for this guild.
-              </p>
             </div>
             <input
               type="checkbox"

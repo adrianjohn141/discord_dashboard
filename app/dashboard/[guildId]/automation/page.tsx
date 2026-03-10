@@ -21,12 +21,12 @@ export default async function GuildAutomationPage({
         <p className="text-[11px] uppercase tracking-[0.38em] text-[var(--accent-strong)]">
           AutoMod Settings
         </p>
-        <h2 className="mt-3 text-2xl font-semibold text-white md:text-3xl">
+        <h2 className="mt-2 text-lg font-semibold text-white md:text-xl">
           {status?.name ?? guildId}
         </h2>
         <p className="mt-3 max-w-3xl text-sm leading-7 subtle-copy md:text-base">
           Manage the same anti-spam, anti-link, anti-invite, anti-raid, and escalation
-          settings that the bot already enforces through its existing Supabase-backed
+          settings.
           guild configuration.
         </p>
       </div>

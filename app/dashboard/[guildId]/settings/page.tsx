@@ -34,7 +34,7 @@ export default async function GuildSettingsPage({
         <p className="text-[11px] uppercase tracking-[0.38em] text-[var(--accent-strong)]">
           Guild Settings
         </p>
-        <h2 className="mt-3 text-2xl font-semibold text-white md:text-3xl">
+        <h2 className="mt-2 text-lg font-semibold text-white md:text-xl">
           {status?.name ?? guildId}
         </h2>
         <p className="mt-3 max-w-3xl text-sm leading-7 subtle-copy md:text-base">
