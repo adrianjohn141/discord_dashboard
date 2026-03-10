@@ -75,6 +75,7 @@ export interface GuildResourceCatalog {
 
 export interface ModerationLogRecord {
   id: string;
+  caseId: string | null;
   guildId: string;
   userId: string;
   moderatorId: string;
@@ -86,11 +87,30 @@ export interface ModerationLogRecord {
 
 export interface WarningRecord {
   id: string;
+  caseId: string | null;
   guildId: string;
   userId: string;
   moderatorId: string;
   reason: string;
   createdAt: string | null;
+}
+
+export interface ModerationCaseRecord {
+  id: string;
+  guildId: string;
+  userId: string;
+  moderatorId: string;
+  action: string;
+  reason: string;
+  status: "open" | "resolved" | "voided";
+  origin: "manual" | "auto_anti_abuse" | "auto_antiraid" | "system";
+  duration: string | null;
+  evidenceLinks: string[];
+  relatedCaseId: string | null;
+  resolutionNote: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  resolvedAt: string | null;
 }
 
 export interface TemporaryRoleRecord {
@@ -104,6 +124,7 @@ export interface TemporaryRoleRecord {
 
 export interface TemporaryBanRecord {
   id: string;
+  caseId: string | null;
   guildId: string;
   userId: string;
   expiresAt: string;
@@ -179,12 +200,12 @@ export interface GuildDashboardSummary {
   config: GuildConfigRecord;
   status: ManagedGuildStatus | null;
   warningCount: number;
-  moderationLogCount: number;
+  caseCount: number;
   temporaryRoleCount: number;
   temporaryBanCount: number;
   roleLockCount: number;
-  latestModerationLogs: ModerationLogRecord[];
-  latestWarnings: WarningRecord[];
+  latestCases: ModerationCaseRecord[];
+  latestWarningCases: ModerationCaseRecord[];
   latestAuditLogs: DashboardAuditLogRecord[];
 }
 

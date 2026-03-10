@@ -24,7 +24,7 @@ function formatShortDate(value: string | null) {
 }
 
 function formatCaseId(id: string) {
-  return `#${id.replaceAll("-", "").slice(0, 6).toUpperCase()}`;
+  return `#${id.padStart(6, "0")}`;
 }
 
 function formatActionLabel(action: string) {
@@ -72,8 +72,14 @@ export default async function GuildOverviewPage({
   await requireDashboardGuildAccess(guildId);
   const summary = await getGuildDashboardSummary(guildId);
 
-  const latestCases = summary.latestModerationLogs.slice(0, 3);
-  const reviewQueue = summary.latestWarnings.slice(0, 3);
+  const latestCases = (
+    summary.latestCases ??
+    ((summary as unknown as { latestModerationLogs?: unknown[] }).latestModerationLogs ?? [])
+  ).slice(0, 3);
+  const reviewQueue = (
+    summary.latestWarningCases ??
+    ((summary as unknown as { latestWarnings?: unknown[] }).latestWarnings ?? [])
+  ).slice(0, 3);
   const activityBars = [
     {
       label: "Warnings",
@@ -82,7 +88,7 @@ export default async function GuildOverviewPage({
     },
     {
       label: "Cases",
-      value: summary.moderationLogCount,
+      value: summary.caseCount,
       color: "from-[#6b8fd7] to-[#4e6fb7]",
     },
     {
@@ -105,9 +111,9 @@ export default async function GuildOverviewPage({
   const metrics = [
     {
       label: "Total Cases",
-      value: summary.moderationLogCount,
+      value: summary.caseCount,
       copy: latestCases.length > 0
-        ? `${latestCases.length} recent moderation actions in view.`
+        ? `${latestCases.length} recent case records in view.`
         : "No moderation cases have been recorded yet.",
       icon: CaseIcon,
       iconTone: "text-[var(--accent-strong)]",
@@ -225,6 +231,7 @@ export default async function GuildOverviewPage({
                             Case ID
                           </p>
                           <p className="mt-1 font-mono text-sm text-white">{formatCaseId(log.id)}</p>
+                          <p className="mt-2 text-xs text-[var(--text-muted)] uppercase">{log.status}</p>
                         </div>
                         <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${actionTone.badge}`}>
                           <span className={`h-1.5 w-1.5 rounded-full ${actionTone.dot}`} />
@@ -244,6 +251,12 @@ export default async function GuildOverviewPage({
                           <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--text-faint)]">When</p>
                           <p className="mt-1 text-sm text-[var(--text-muted)]">{formatShortDate(log.createdAt)}</p>
                         </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--text-faint)]">Evidence</p>
+                          <p className="mt-1 text-sm text-[var(--text-muted)]">
+                            {log.evidenceLinks.length > 0 ? `${log.evidenceLinks.length} link(s)` : "None"}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   );
@@ -258,6 +271,7 @@ export default async function GuildOverviewPage({
                     <th className="px-6 py-4">Case ID</th>
                     <th className="px-6 py-4">User</th>
                     <th className="px-6 py-4">Action</th>
+                    <th className="px-6 py-4">Status</th>
                     <th className="px-6 py-4">Moderator</th>
                     <th className="px-6 py-4 text-right">Date</th>
                   </tr>
@@ -279,6 +293,7 @@ export default async function GuildOverviewPage({
                             {formatActionLabel(log.action)}
                           </span>
                         </td>
+                        <td className="px-6 py-4 text-[var(--text-muted)] uppercase">{log.status}</td>
                         <td className="px-6 py-4 text-white">{log.moderatorId}</td>
                         <td className="px-6 py-4 text-right text-[var(--text-muted)]">
                           {formatShortDate(log.createdAt)}
@@ -343,9 +358,10 @@ export default async function GuildOverviewPage({
                   <div key={warning.id} className="p-3 bg-[var(--bg-surface-elevated)] rounded-lg border border-[var(--line)]">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs font-bold text-white">Appeal {formatCaseId(warning.id)}</p>
-                      <span className="text-[10px] font-bold text-[var(--text-faint)] uppercase">Awaiting Review</span>
+                      <span className="text-[10px] font-bold text-[var(--text-faint)] uppercase">{warning.status}</span>
                     </div>
                     <p className="text-xs text-[var(--text-muted)]">User: {warning.userId}</p>
+                    <p className="mt-1 text-xs text-[var(--text-faint)]">{warning.reason}</p>
                   </div>
                 ))
               )}

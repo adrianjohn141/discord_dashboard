@@ -19,6 +19,7 @@ import type {
   GuildResourceCatalog,
   GuildRoleOption,
   ManagedGuildStatus,
+  ModerationCaseRecord,
   ModerationLogRecord,
   RoleLockRecord,
   TemporaryBanRecord,
@@ -140,6 +141,7 @@ function mapGuildRole(row: Record<string, unknown>): GuildRoleOption {
 function mapModerationLog(row: Record<string, unknown>): ModerationLogRecord {
   return {
     id: String(row.id),
+    caseId: (row.case_id as string | null) ?? null,
     guildId: String(row.guild_id),
     userId: String(row.user_id),
     moderatorId: String(row.moderator_id),
@@ -153,11 +155,40 @@ function mapModerationLog(row: Record<string, unknown>): ModerationLogRecord {
 function mapWarning(row: Record<string, unknown>): WarningRecord {
   return {
     id: String(row.id),
+    caseId: (row.case_id as string | null) ?? null,
     guildId: String(row.guild_id),
     userId: String(row.user_id),
     moderatorId: String(row.moderator_id),
     reason: String(row.reason),
     createdAt: (row.created_at as string | null) ?? null,
+  };
+}
+
+function mapModerationCase(row: Record<string, unknown>): ModerationCaseRecord {
+  const status = String(row.status ?? "open");
+  const origin = String(row.origin ?? "manual");
+
+  return {
+    id: String(row.id),
+    guildId: String(row.guild_id),
+    userId: String(row.user_id),
+    moderatorId: String(row.moderator_id),
+    action: String(row.action),
+    reason: String(row.reason),
+    status: status === "resolved" || status === "voided" ? status : "open",
+    origin:
+      origin === "auto_anti_abuse" || origin === "auto_antiraid" || origin === "system"
+        ? origin
+        : "manual",
+    duration: (row.duration as string | null) ?? null,
+    evidenceLinks: Array.isArray(row.evidence_links)
+      ? row.evidence_links.map((value) => String(value))
+      : [],
+    relatedCaseId: (row.related_case_id as string | null) ?? null,
+    resolutionNote: (row.resolution_note as string | null) ?? null,
+    createdAt: (row.created_at as string | null) ?? null,
+    updatedAt: (row.updated_at as string | null) ?? null,
+    resolvedAt: (row.resolved_at as string | null) ?? null,
   };
 }
 
@@ -175,6 +206,7 @@ function mapTemporaryRole(row: Record<string, unknown>): TemporaryRoleRecord {
 function mapTemporaryBan(row: Record<string, unknown>): TemporaryBanRecord {
   return {
     id: String(row.id),
+    caseId: (row.case_id as string | null) ?? null,
     guildId: String(row.guild_id),
     userId: String(row.user_id),
     expiresAt: String(row.expires_at),
@@ -362,19 +394,24 @@ async function readGuildDashboardSummary(guildId: string): Promise<GuildDashboar
     config,
     status,
     warningsCountResponse,
-    moderationCountResponse,
+    caseCountResponse,
     temporaryRoleCountResponse,
     temporaryBanCountResponse,
     roleLockCountResponse,
-    latestModerationResponse,
-    latestWarningsResponse,
+    latestCasesResponse,
+    latestWarningCasesResponse,
     latestAuditResponse,
   ] = await Promise.all([
     readGuildConfig(guildId),
     readManagedGuildStatus(guildId),
-    admin.from("dashboard_warnings_v").select("id", { count: "exact", head: true }).eq("guild_id", guildId),
     admin
-      .from("dashboard_moderation_logs_v")
+      .from("dashboard_moderation_cases_v")
+      .select("id", { count: "exact", head: true })
+      .eq("guild_id", guildId)
+      .eq("action", "warn")
+      .eq("status", "open"),
+    admin
+      .from("dashboard_moderation_cases_v")
       .select("id", { count: "exact", head: true })
       .eq("guild_id", guildId),
     admin
@@ -390,15 +427,17 @@ async function readGuildDashboardSummary(guildId: string): Promise<GuildDashboar
       .select("user_id", { count: "exact", head: true })
       .eq("guild_id", guildId),
     admin
-      .from("dashboard_moderation_logs_v")
+      .from("dashboard_moderation_cases_v")
       .select("*")
       .eq("guild_id", guildId)
       .order("created_at", { ascending: false })
       .limit(6),
     admin
-      .from("dashboard_warnings_v")
+      .from("dashboard_moderation_cases_v")
       .select("*")
       .eq("guild_id", guildId)
+      .eq("action", "warn")
+      .eq("status", "open")
       .order("created_at", { ascending: false })
       .limit(6),
     admin
@@ -411,12 +450,12 @@ async function readGuildDashboardSummary(guildId: string): Promise<GuildDashboar
 
   for (const response of [
     warningsCountResponse,
-    moderationCountResponse,
+    caseCountResponse,
     temporaryRoleCountResponse,
     temporaryBanCountResponse,
     roleLockCountResponse,
-    latestModerationResponse,
-    latestWarningsResponse,
+    latestCasesResponse,
+    latestWarningCasesResponse,
     latestAuditResponse,
   ]) {
     if (response.error) {
@@ -429,15 +468,15 @@ async function readGuildDashboardSummary(guildId: string): Promise<GuildDashboar
     config,
     status,
     warningCount: warningsCountResponse.count ?? 0,
-    moderationLogCount: moderationCountResponse.count ?? 0,
+    caseCount: caseCountResponse.count ?? 0,
     temporaryRoleCount: temporaryRoleCountResponse.count ?? 0,
     temporaryBanCount: temporaryBanCountResponse.count ?? 0,
     roleLockCount: roleLockCountResponse.count ?? 0,
-    latestModerationLogs: (latestModerationResponse.data ?? []).map((row) =>
-      mapModerationLog(row as Record<string, unknown>),
+    latestCases: (latestCasesResponse.data ?? []).map((row) =>
+      mapModerationCase(row as Record<string, unknown>),
     ),
-    latestWarnings: (latestWarningsResponse.data ?? []).map((row) =>
-      mapWarning(row as Record<string, unknown>),
+    latestWarningCases: (latestWarningCasesResponse.data ?? []).map((row) =>
+      mapModerationCase(row as Record<string, unknown>),
     ),
     latestAuditLogs: (latestAuditResponse.data ?? []).map((row) =>
       mapAuditLog(row as Record<string, unknown>),
@@ -445,11 +484,11 @@ async function readGuildDashboardSummary(guildId: string): Promise<GuildDashboar
   };
 }
 
-async function readGuildLogs(guildId: string, action?: string) {
+async function readGuildLogs(guildId: string, action?: string, status?: string) {
   const admin = createAdminClient();
 
   let moderationQuery = admin
-    .from("dashboard_moderation_logs_v")
+    .from("dashboard_moderation_cases_v")
     .select("*")
     .eq("guild_id", guildId)
     .order("created_at", { ascending: false })
@@ -459,30 +498,19 @@ async function readGuildLogs(guildId: string, action?: string) {
     moderationQuery = moderationQuery.eq("action", action);
   }
 
-  const [moderationResponse, warningResponse] = await Promise.all([
-    moderationQuery,
-    admin
-      .from("dashboard_warnings_v")
-      .select("*")
-      .eq("guild_id", guildId)
-      .order("created_at", { ascending: false })
-      .limit(50),
-  ]);
+  if (status) {
+    moderationQuery = moderationQuery.eq("status", status);
+  }
+
+  const moderationResponse = await moderationQuery;
 
   if (moderationResponse.error) {
     throw moderationResponse.error;
   }
 
-  if (warningResponse.error) {
-    throw warningResponse.error;
-  }
-
   return {
-    moderationLogs: (moderationResponse.data ?? []).map((row) =>
-      mapModerationLog(row as Record<string, unknown>),
-    ),
-    warnings: (warningResponse.data ?? []).map((row) =>
-      mapWarning(row as Record<string, unknown>),
+    moderationCases: (moderationResponse.data ?? []).map((row) =>
+      mapModerationCase(row as Record<string, unknown>),
     ),
   };
 }
@@ -668,19 +696,19 @@ export async function getGuildResourceCatalog(guildId: string): Promise<GuildRes
 
 export async function getGuildDashboardSummary(guildId: string): Promise<GuildDashboardSummary> {
   return runCachedQuery(
-    ["guild-summary", guildId],
+    ["guild-summary-v2", guildId],
     [dashboardCacheTags.guildSummary(guildId)],
     dashboardCacheTtls.guildSummary,
     () => readGuildDashboardSummary(guildId),
   );
 }
 
-export async function getGuildLogs(guildId: string, action?: string) {
+export async function getGuildLogs(guildId: string, action?: string, status?: string) {
   return runCachedQuery(
-    ["guild-logs", guildId, action ?? "all"],
+    ["guild-logs", guildId, action ?? "all", status ?? "all"],
     [dashboardCacheTags.guildLogs(guildId)],
     dashboardCacheTtls.guildLogs,
-    () => readGuildLogs(guildId, action),
+    () => readGuildLogs(guildId, action, status),
   );
 }
 
