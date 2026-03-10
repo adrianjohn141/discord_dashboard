@@ -87,9 +87,16 @@ export function DiscordAuthScreen({
 
             <div className="mt-6">
               <DiscordSignInButton className="primary-button w-full py-3.5 text-sm font-bold" />
-              <p className="mt-4 text-center text-[10px] text-[var(--text-faint)] uppercase tracking-widest font-bold">
-                OAuth2 Secure Access Only
-              </p>
+              <div className="mt-4 flex flex-col items-center gap-2">
+                <p className="text-center text-[10px] text-[var(--text-faint)] uppercase tracking-widest font-bold">
+                  OAuth2 Secure Access Only
+                </p>
+                <div className="flex gap-4 text-xs font-semibold text-[var(--text-muted)]">
+                  <a href="/terms" className="hover:text-white transition-colors">Terms of Service</a>
+                  <span className="text-[var(--line)]">&bull;</span>
+                  <a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a>
+                </div>
+              </div>
             </div>
           </div>
         </section>
