@@ -1,4 +1,0 @@
-0000000000000000000000000000000000000000 2c5285afeda52eb45be4bbb3ea85df4901c10d1d N9 <adrianjohnversoza@gmail.com> 1772945445 +0800	commit (initial): Initial commit from Create Next App
-2c5285afeda52eb45be4bbb3ea85df4901c10d1d 2c5285afeda52eb45be4bbb3ea85df4901c10d1d N9 <adrianjohnversoza@gmail.com> 1772993300 +0800	checkout: moving from master to master
-2c5285afeda52eb45be4bbb3ea85df4901c10d1d 36f86daebb17f0bf8093b39bfffe5e329f3ad612 N9 <adrianjohnversoza@gmail.com> 1772993482 +0800	commit: feat: add authentication guards and user session management
-36f86daebb17f0bf8093b39bfffe5e329f3ad612 9d23671e6c334ef7796adfad9e54beb5a095962a N9 <adrianjohnversoza@gmail.com> 1772999634 +0800	commit: feat: add animations and mobile sidebar functionality to dashboard
