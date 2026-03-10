@@ -244,6 +244,7 @@ export function CloseIcon({ className }: IconProps) {
     </IconFrame>
   );
 }
+<<<<<<< HEAD
 
 export function PlusIcon({ className }: IconProps) {
   return (
@@ -302,3 +303,5 @@ export function LoaderIcon({ className }: IconProps) {
     </IconFrame>
   );
 }
+=======
+>>>>>>> 9d23671e6c334ef7796adfad9e54beb5a095962a

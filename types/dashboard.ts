@@ -111,6 +111,7 @@ export interface TemporaryBanRecord {
   createdAt: string | null;
 }
 
+<<<<<<< HEAD
 export interface CustomCommandRecord {
   id: string;
   guildId: string;
@@ -122,6 +123,8 @@ export interface CustomCommandRecord {
   updatedAt: string;
 }
 
+=======
+>>>>>>> 9d23671e6c334ef7796adfad9e54beb5a095962a
 export interface RoleLockRecord {
   guildId: string;
   userId: string;
