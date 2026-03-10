@@ -1,9 +1,9 @@
-import { requireGuildAccess } from "@/lib/auth/guards";
 import {
   getGuildConfig,
   getGuildResourceCatalog,
   getManagedGuildStatus,
 } from "@/lib/db/queries";
+import { requireDashboardGuildAccess } from "@/lib/dashboard/request-context";
 import { GuildChannelSelect } from "@/components/settings/guild-channel-select";
 import { GuildRoleSelect } from "@/components/settings/guild-role-select";
 
@@ -15,7 +15,7 @@ export default async function GuildSettingsPage({
   params: Promise<{ guildId: string }>;
 }) {
   const { guildId } = await params;
-  await requireGuildAccess(guildId);
+  await requireDashboardGuildAccess(guildId);
   const [config, status, resourceCatalog] = await Promise.all([
     getGuildConfig(guildId),
     getManagedGuildStatus(guildId),

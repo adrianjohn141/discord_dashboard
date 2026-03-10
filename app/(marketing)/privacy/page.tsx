@@ -16,7 +16,7 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2 className="text-2xl font-semibold text-white mb-4">1. Introduction</h2>
             <p>
-              Welcome to Akbash. We respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Discord Moderation Bot and accompanying web dashboard ("the Service").
+              Welcome to Akbash. We respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Discord Moderation Bot and accompanying web dashboard ({'"the Service"'}).
             </p>
           </section>
 
@@ -68,7 +68,7 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2 className="text-2xl font-semibold text-white mb-4">7. Changes to This Policy</h2>
             <p>
-              We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last updated" date. Your continued use of the Service after changes are posted constitutes your acceptance of the revised policy.
+              We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the {'"Last updated"'} date. Your continued use of the Service after changes are posted constitutes your acceptance of the revised policy.
             </p>
           </section>
 

@@ -39,7 +39,7 @@ export function RefreshAccessButton() {
       <button
         type="button"
         onClick={handleRefresh}
-        className="secondary-button px-3 py-2.5 text-sm font-medium sm:px-4 sm:py-3"
+        className="secondary-button px-3 py-2 text-sm font-medium sm:px-3.5 sm:py-2.5"
       >
         <RefreshIcon className="h-4 w-4" />
         {isPending ? "Refreshing..." : "Refresh Access"}

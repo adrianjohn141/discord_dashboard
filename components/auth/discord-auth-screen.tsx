@@ -1,4 +1,6 @@
-import { ArrowRightIcon, BrandMark, CaseIcon, DiscordIcon, PulseIcon, SettingsIcon, ShieldIcon } from "@/components/dashboard/icons";
+import Image from "next/image";
+
+import { CaseIcon, DiscordIcon, PulseIcon, SettingsIcon } from "@/components/dashboard/icons";
 
 import { DiscordSignInButton } from "./discord-sign-in-button";
 
@@ -38,8 +40,16 @@ export function DiscordAuthScreen({
           <div className="relative z-10 space-y-6">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0 bg-[var(--bg-surface-elevated)] border border-[var(--line)]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/Akbash -1.png" alt="Akbash Logo" className="h-full w-full object-cover" />
+                <div className="relative h-full w-full">
+                  <Image
+                    src="/Akbash -1.png"
+                    alt="Akbash Logo"
+                    fill
+                    sizes="40px"
+                    priority
+                    className="object-cover"
+                  />
+                </div>
               </div>
               <div>
                 <p className="text-[9px] uppercase tracking-[0.2em] font-bold text-[var(--primary)]">

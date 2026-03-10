@@ -1,5 +1,5 @@
-import { requireGuildAccess } from "@/lib/auth/guards";
 import { BookIcon, TerminalIcon } from "@/components/dashboard/icons";
+import { requireDashboardGuildAccess } from "@/lib/dashboard/request-context";
 import Link from "next/link";
 
 export default async function CustomCommandsDocsPage({
@@ -8,12 +8,12 @@ export default async function CustomCommandsDocsPage({
   params: Promise<{ guildId: string }>;
 }) {
   const { guildId } = await params;
-  await requireGuildAccess(guildId);
+  await requireDashboardGuildAccess(guildId);
 
   return (
     <div className="space-y-6">
       <div className="table-panel p-8">
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-[var(--bg-surface-elevated)] rounded-xl border border-[var(--line)] text-[var(--primary)]">
               <BookIcon className="h-6 w-6" />
@@ -74,7 +74,7 @@ export default async function CustomCommandsDocsPage({
                     </tr>
                     <tr>
                       <td className="p-3 font-mono text-white">{"{user.avatar}"}</td>
-                      <td className="p-3">URL to the user's avatar image.</td>
+                      <td className="p-3">URL to the user{"'"}s avatar image.</td>
                     </tr>
                     <tr>
                       <td className="p-3 font-mono text-white">{"{user.created_at}"}</td>
@@ -86,11 +86,11 @@ export default async function CustomCommandsDocsPage({
                     </tr>
                     <tr>
                       <td className="p-3 font-mono text-white">{"{user.color}"}</td>
-                      <td className="p-3">User's highest role color hex code.</td>
+                      <td className="p-3">User{"'"}s highest role color hex code.</td>
                     </tr>
                     <tr>
                       <td className="p-3 font-mono text-white">{"{user.top_role}"}</td>
-                      <td className="p-3">User's highest role name.</td>
+                      <td className="p-3">User{"'"}s highest role name.</td>
                     </tr>
                     <tr>
                       <td className="p-3 font-mono text-white">{"{server}"}</td>
@@ -106,7 +106,7 @@ export default async function CustomCommandsDocsPage({
                     </tr>
                     <tr>
                       <td className="p-3 font-mono text-white">{"{server.icon}"}</td>
-                      <td className="p-3">URL to the server's icon image.</td>
+                      <td className="p-3">URL to the {"server's"} icon image.</td>
                     </tr>
                     <tr>
                       <td className="p-3 font-mono text-white">{"{server.owner_id}"}</td>
@@ -158,7 +158,7 @@ export default async function CustomCommandsDocsPage({
                     </tr>
                     <tr>
                       <td className="p-3 font-mono text-white">{"{arg:1}"}, {"{arg:2}"}</td>
-                      <td className="p-3">Specific words after the command (e.g., {"{arg:1}"} gets the first word).</td>
+                      <td className="p-3">Specific words after the command (for example, {"{arg:1}"} gets the first word).</td>
                     </tr>
                   </tbody>
                 </table>
@@ -174,7 +174,7 @@ export default async function CustomCommandsDocsPage({
               Creating Embeds
             </h3>
             <p className="text-sm text-[var(--text-muted)] mb-4">
-              When you toggle <strong>"Send as Embed"</strong>, the bot expects your response text to be formatted as a valid JSON object. This allows you to create rich, visually striking messages.
+              When you toggle <strong>{'"'}Send as Embed{'"'}</strong>, the bot expects your response text to be formatted as a valid JSON object. This allows you to create rich, visually striking messages.
             </p>
 
             <div className="space-y-4">
@@ -225,7 +225,7 @@ export default async function CustomCommandsDocsPage({
 
               <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
                 <p className="text-sm text-blue-400">
-                  <strong>Pro Tip:</strong> You can use a tool like <a href="https://discohook.org/" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-300">Discohook</a> to visually design your embed and copy the JSON into the dashboard! Note: We only support standard Embed fields.
+                  <strong>Pro Tip:</strong> You can use a tool like <a href="https://discohook.org/" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-300">Discohook</a> to visually design your embed and copy the JSON into the dashboard. Note: We only support standard embed fields.
                 </p>
               </div>
             </div>

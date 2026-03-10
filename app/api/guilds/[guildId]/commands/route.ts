@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+
 import { requireGuildAccess } from "@/lib/auth/guards";
+import {
+  dashboardCacheTags,
+  revalidateDashboardTag,
+} from "@/lib/db/cache-tags";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(
@@ -83,6 +88,7 @@ export async function POST(
       after: data,
     });
 
+    revalidateDashboardTag(dashboardCacheTags.commands(guildId));
     return NextResponse.json(data);
   } catch (error) {
     console.error("Failed to save custom command:", error);
@@ -139,6 +145,7 @@ export async function DELETE(
       });
     }
 
+    revalidateDashboardTag(dashboardCacheTags.commands(guildId));
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to delete custom command:", error);

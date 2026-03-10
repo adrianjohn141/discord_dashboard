@@ -1,41 +1,44 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { MessageSquareIcon, PlusIcon, StarIcon, CheckCircleIcon, SendIcon, LoaderIcon, PencilIcon, TrashIcon, XIcon } from "@/components/dashboard/icons";
+import { useEffect, useState } from "react";
+
+import {
+  LoaderIcon,
+  MessageSquareIcon,
+  PencilIcon,
+  PlusIcon,
+  StarIcon,
+  TrashIcon,
+  XIcon,
+} from "@/components/dashboard/icons";
 import type { FeedbackRecord } from "@/types/dashboard";
 
 interface FeedbackBoardProps {
   isAdmin: boolean;
+  initialFeedback: FeedbackRecord[];
 }
 
-export function FeedbackBoard({ isAdmin }: FeedbackBoardProps) {
-  const [feedbacks, setFeedback] = useState<FeedbackRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export function FeedbackBoard({ isAdmin, initialFeedback }: FeedbackBoardProps) {
+  const [feedbacks, setFeedback] = useState<FeedbackRecord[]>(initialFeedback);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [feedbackToDelete, setFeedbackToDelete] = useState<string | null>(null);
-  
-  // Form State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [feedbackContent, setFeedbackContent] = useState("");
-
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    fetchFeedback();
-  }, []);
+    setFeedback(initialFeedback);
+  }, [initialFeedback]);
 
   const fetchFeedback = async () => {
     try {
-      const res = await fetch("/api/feedback");
-      if (res.ok) {
-        const data = await res.json();
-        setFeedback(data);
+      const response = await fetch("/api/feedback");
+      if (response.ok) {
+        setFeedback(await response.json());
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -47,6 +50,7 @@ export function FeedbackBoard({ isAdmin }: FeedbackBoardProps) {
       setEditingId(null);
       setFeedbackContent("");
     }
+
     setIsModalOpen(true);
   };
 
@@ -56,315 +60,369 @@ export function FeedbackBoard({ isAdmin }: FeedbackBoardProps) {
     setFeedbackContent("");
   };
 
-  const handleSubmitFeedback = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!feedbackContent.trim()) return;
+  const handleSubmitFeedback = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!feedbackContent.trim()) {
+      return;
+    }
 
     setIsSubmitting(true);
+
     try {
       if (editingId) {
-        // Edit existing
-        const res = await fetch(`/api/feedback/${editingId}`, {
+        const response = await fetch(`/api/feedback/${editingId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content: feedbackContent }),
         });
-        if (res.ok) {
+
+        if (response.ok) {
           handleCloseModal();
           await fetchFeedback();
         }
       } else {
-        // Create new
-        const res = await fetch("/api/feedback", {
+        const response = await fetch("/api/feedback", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content: feedbackContent }),
         });
-        if (res.ok) {
+
+        if (response.ok) {
           handleCloseModal();
           await fetchFeedback();
         }
       }
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDeleteFeedback = (feedbackId: string) => {
-    setFeedbackToDelete(feedbackId);
-  };
-
   const confirmDeleteFeedback = async () => {
-    if (!feedbackToDelete) return;
+    if (!feedbackToDelete) {
+      return;
+    }
+
     try {
-      const res = await fetch(`/api/feedback/${feedbackToDelete}`, { method: "DELETE" });
-      if (res.ok) {
-        setFeedback(prev => prev.filter(f => f.id !== feedbackToDelete));
+      const response = await fetch(`/api/feedback/${feedbackToDelete}`, { method: "DELETE" });
+
+      if (response.ok) {
+        setFeedback((current) => current.filter((feedback) => feedback.id !== feedbackToDelete));
       }
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
     } finally {
       setFeedbackToDelete(null);
     }
   };
 
   const toggleStar = async (feedbackId: string) => {
-    // Optimistic update
-    setFeedback(prev => prev.map(f => {
-      if (f.id === feedbackId) {
+    setFeedback((current) =>
+      current.map((feedback) => {
+        if (feedback.id !== feedbackId) {
+          return feedback;
+        }
+
         return {
-          ...f,
-          hasStarred: !f.hasStarred,
-          starsCount: f.hasStarred ? f.starsCount - 1 : f.starsCount + 1
+          ...feedback,
+          hasStarred: !feedback.hasStarred,
+          starsCount: feedback.hasStarred ? feedback.starsCount - 1 : feedback.starsCount + 1,
         };
-      }
-      return f;
-    }));
+      }),
+    );
 
     try {
       await fetch(`/api/feedback/${feedbackId}/star`, { method: "POST" });
-    } catch (err) {
-      // Revert on error
+    } catch (error) {
+      console.error(error);
       await fetchFeedback();
     }
   };
 
   const markAsDone = async (feedbackId: string) => {
-    if (!isAdmin) return;
+    if (!isAdmin) {
+      return;
+    }
+
     try {
-      const res = await fetch(`/api/feedback/${feedbackId}/status`, { method: "PATCH" });
-      if (res.ok) {
-        setFeedback(prev => prev.map(f => f.id === feedbackId ? { ...f, status: "done" } : f));
+      const response = await fetch(`/api/feedback/${feedbackId}/status`, { method: "PATCH" });
+      if (response.ok) {
+        setFeedback((current) =>
+          current.map((feedback) =>
+            feedback.id === feedbackId ? { ...feedback, status: "done" } : feedback,
+          ),
+        );
       }
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
     }
   };
 
   const handleCommentSubmit = async (feedbackId: string) => {
     const content = commentInputs[feedbackId];
-    if (!content?.trim()) return;
+
+    if (!content?.trim()) {
+      return;
+    }
 
     try {
-      const res = await fetch(`/api/feedback/${feedbackId}/comment`, {
+      const response = await fetch(`/api/feedback/${feedbackId}/comment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content }),
       });
 
-      if (res.ok) {
-        setCommentInputs(prev => ({ ...prev, [feedbackId]: "" }));
+      if (response.ok) {
+        setCommentInputs((current) => ({ ...current, [feedbackId]: "" }));
         await fetchFeedback();
       }
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoaderIcon className="h-8 w-8 animate-spin text-[var(--primary)]" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-xl font-bold text-white">Community Feedback</h2>
-        <button 
+        <button
+          type="button"
           onClick={() => handleOpenModal()}
-          className="primary-button flex items-center gap-2"
+          className="primary-button flex items-center justify-center gap-2"
         >
           <PlusIcon className="h-4 w-4" />
           Submit Feedback
         </button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {feedbacks.map((item) => (
-          <div key={item.id} className="table-panel p-5 flex flex-col justify-between">
-            <div>
-              <div className="flex items-start justify-between mb-4">
-                <div className={`px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full border flex-shrink-0 ${
-                  item.status === 'done' 
-                    ? 'bg-green-500/10 text-green-400 border-green-500/20' 
-                    : 'bg-[var(--primary)]/10 text-[var(--primary)] border-[var(--primary)]/20'
-                }`}>
-                  {item.status}
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  {isAdmin && item.status === 'open' && (
-                    <button 
-                      onClick={() => markAsDone(item.id)}
-                      className="text-xs text-[var(--text-faint)] hover:text-green-400 transition-colors"
-                    >
-                      Mark Done
-                    </button>
-                  )}
-                  {(item.isAuthor || isAdmin) && (
-                    <div className="flex items-center gap-1 ml-2">
-                      {item.isAuthor && (
-                        <button 
-                          onClick={() => handleOpenModal(item)}
-                          className="p-1.5 text-[var(--text-faint)] hover:text-white hover:bg-[var(--bg-surface-elevated)] rounded-md transition-colors"
-                          title="Edit your feedback"
-                        >
-                          <PencilIcon className="h-3 w-3" />
-                        </button>
-                      )}
-                      <button 
-                        onClick={() => handleDeleteFeedback(item.id)}
-                        className="p-1.5 text-[var(--text-faint)] hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
-                        title={isAdmin && !item.isAuthor ? "Delete (Admin)" : "Delete your feedback"}
+      {feedbacks.length === 0 ? (
+        <div className="table-panel p-8 text-center">
+          <h3 className="text-xl font-bold text-white">No feedback yet</h3>
+          <p className="mt-2 text-sm text-[var(--text-muted)]">
+            Start the conversation with a bug report, question, or feature request.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {feedbacks.map((item) => (
+            <div key={item.id} className="table-panel flex flex-col justify-between p-5">
+              <div>
+                <div className="mb-4 flex items-start justify-between">
+                  <div
+                    className={`flex-shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                      item.status === "done"
+                        ? "border-green-500/20 bg-green-500/10 text-green-400"
+                        : "border-[var(--primary)]/20 bg-[var(--primary)]/10 text-[var(--primary)]"
+                    }`}
+                  >
+                    {item.status}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {isAdmin && item.status === "open" ? (
+                      <button
+                        type="button"
+                        onClick={() => markAsDone(item.id)}
+                        className="text-xs text-[var(--text-faint)] transition-colors hover:text-green-400"
                       >
-                        <TrashIcon className="h-3 w-3" />
+                        Mark Done
                       </button>
-                    </div>
-                  )}
+                    ) : null}
+                    {item.isAuthor || isAdmin ? (
+                      <div className="ml-2 flex items-center gap-1">
+                        {item.isAuthor ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenModal(item)}
+                            className="rounded-md p-1.5 text-[var(--text-faint)] transition-colors hover:bg-[var(--bg-surface-elevated)] hover:text-white"
+                            title="Edit your feedback"
+                          >
+                            <PencilIcon className="h-3 w-3" />
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => setFeedbackToDelete(item.id)}
+                          className="rounded-md p-1.5 text-[var(--text-faint)] transition-colors hover:bg-red-500/10 hover:text-red-400"
+                          title={isAdmin && !item.isAuthor ? "Delete (Admin)" : "Delete your feedback"}
+                        >
+                          <TrashIcon className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-              
-              <p className="text-white text-sm leading-relaxed mb-6 whitespace-pre-wrap">
-                {item.content}
-              </p>
-            </div>
 
-            <div className="space-y-4 mt-auto">
-              {item.comments && item.comments.length > 0 && (
-                <div className="space-y-3 pt-4 border-t border-[var(--line)]">
-                  {item.comments.map(comment => (
-                    <div key={comment.id} className="bg-[var(--bg-input)] rounded-lg p-3 relative overflow-hidden">
-                      <div className={`absolute top-0 left-0 w-1 h-full ${comment.isAdmin ? 'bg-[var(--primary)]' : 'bg-[var(--line)]'}`}></div>
-                      <p className={`text-xs font-bold mb-1 ${comment.isAdmin ? 'text-[var(--primary)]' : 'text-white'}`}>
-                        {comment.isAdmin ? 'Admin Response' : 'User Reply'}
-                      </p>
-                      <p className="text-xs text-[var(--text-muted)] whitespace-pre-wrap">{comment.content}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex items-center justify-between pt-4 border-t border-[var(--line)]">
-                <p className="text-xs text-[var(--text-faint)]">
-                  {new Date(item.createdAt).toLocaleDateString()}
+                <p className="mb-6 whitespace-pre-wrap text-sm leading-relaxed text-white">
+                  {item.content}
                 </p>
-                <button
-                  onClick={() => toggleStar(item.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-colors ${
-                    item.hasStarred 
-                      ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-400" 
-                      : "bg-[var(--bg-surface-elevated)] border-[var(--line)] text-[var(--text-faint)] hover:text-white"
-                  }`}
-                >
-                  <StarIcon className={`h-4 w-4 ${item.hasStarred ? "fill-current" : ""}`} />
-                  <span className="text-xs font-bold">{item.starsCount}</span>
-                </button>
               </div>
 
-              {/* Comment Input visible to all authenticated users */}
-              <div className="flex gap-2 mt-2 pt-4 border-t border-[var(--line)]">
-                <input 
-                  type="text" 
-                  placeholder={isAdmin ? "Admin reply..." : "Add a reply..."}
-                  className="flex-1 bg-[var(--bg-input)] border border-[var(--line)] rounded-lg px-3 py-2 text-xs text-white placeholder-[var(--text-faint)] focus:outline-none focus:border-[var(--primary)]"
-                  value={commentInputs[item.id] || ""}
-                  onChange={(e) => setCommentInputs(prev => ({ ...prev, [item.id]: e.target.value }))}
-                  onKeyDown={(e) => e.key === 'Enter' && handleCommentSubmit(item.id)}
-                />
-                <button 
-                  onClick={() => handleCommentSubmit(item.id)}
-                  className="p-2 bg-[var(--primary)] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
-                  disabled={!commentInputs[item.id]?.trim()}
-                >
-                  <MessageSquareIcon className="h-4 w-4" />
-                </button>
+              <div className="mt-auto space-y-4">
+                {item.comments?.length ? (
+                  <div className="space-y-3 border-t border-[var(--line)] pt-4">
+                    {item.comments.map((comment) => (
+                      <div
+                        key={comment.id}
+                        className="relative overflow-hidden rounded-lg bg-[var(--bg-input)] p-3"
+                      >
+                        <div
+                          className={`absolute left-0 top-0 h-full w-1 ${
+                            comment.isAdmin ? "bg-[var(--primary)]" : "bg-[var(--line)]"
+                          }`}
+                        />
+                        <p
+                          className={`mb-1 text-xs font-bold ${
+                            comment.isAdmin ? "text-[var(--primary)]" : "text-white"
+                          }`}
+                        >
+                          {comment.isAdmin ? "Admin Response" : "User Reply"}
+                        </p>
+                        <p className="whitespace-pre-wrap text-xs text-[var(--text-muted)]">
+                          {comment.content}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="flex items-center justify-between border-t border-[var(--line)] pt-4">
+                  <p className="text-xs text-[var(--text-faint)]">
+                    {new Date(item.createdAt).toLocaleDateString()}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => toggleStar(item.id)}
+                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 transition-colors ${
+                      item.hasStarred
+                        ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
+                        : "border-[var(--line)] bg-[var(--bg-surface-elevated)] text-[var(--text-faint)] hover:text-white"
+                    }`}
+                  >
+                    <StarIcon className={`h-4 w-4 ${item.hasStarred ? "fill-current" : ""}`} />
+                    <span className="text-xs font-bold">{item.starsCount}</span>
+                  </button>
+                </div>
+
+                <div className="mt-2 flex gap-2 border-t border-[var(--line)] pt-4">
+                  <input
+                    type="text"
+                    placeholder={isAdmin ? "Admin reply..." : "Add a reply..."}
+                    className="flex-1 rounded-lg border border-[var(--line)] bg-[var(--bg-input)] px-3 py-2 text-xs text-white placeholder-[var(--text-faint)] focus:border-[var(--primary)] focus:outline-none"
+                    value={commentInputs[item.id] || ""}
+                    onChange={(event) =>
+                      setCommentInputs((current) => ({
+                        ...current,
+                        [item.id]: event.target.value,
+                      }))
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        void handleCommentSubmit(item.id);
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleCommentSubmit(item.id)}
+                    className="rounded-lg bg-[var(--primary)] p-2 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                    disabled={!commentInputs[item.id]?.trim()}
+                  >
+                    <MessageSquareIcon className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-[var(--bg-surface)] border border-[var(--line)] rounded-2xl shadow-2xl overflow-hidden">
-            <div className="p-6 border-b border-[var(--line)] flex justify-between items-center">
-              <h3 className="text-xl font-bold text-white">{editingId ? "Edit Feedback" : "Submit Feedback"}</h3>
-              <button onClick={handleCloseModal} className="text-[var(--text-faint)] hover:text-white">
+      {isModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-surface)] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[var(--line)] p-6">
+              <h3 className="text-xl font-bold text-white">
+                {editingId ? "Edit Feedback" : "Submit Feedback"}
+              </h3>
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                className="text-[var(--text-faint)] hover:text-white"
+              >
                 <XIcon className="h-6 w-6" />
               </button>
             </div>
-            <form onSubmit={handleSubmitFeedback} className="p-6 space-y-4">
+            <form onSubmit={handleSubmitFeedback} className="flex-1 overflow-y-auto p-6 space-y-4">
               <div>
-                <label className="block text-sm font-bold text-[var(--text-faint)] uppercase tracking-wider mb-2">
+                <label className="mb-2 block text-sm font-bold uppercase tracking-wider text-[var(--text-faint)]">
                   Your Feedback / Question
                 </label>
                 <textarea
                   required
                   rows={5}
                   value={feedbackContent}
-                  onChange={(e) => setFeedbackContent(e.target.value)}
-                  className="w-full bg-[var(--bg-input)] border border-[var(--line)] rounded-xl py-3 px-4 text-white placeholder-[var(--text-faint)] focus:outline-none focus:border-[var(--primary)] transition-colors resize-none"
+                  onChange={(event) => setFeedbackContent(event.target.value)}
+                  className="w-full resize-none rounded-xl border border-[var(--line)] bg-[var(--bg-input)] px-4 py-3 text-white placeholder-[var(--text-faint)] transition-colors focus:border-[var(--primary)] focus:outline-none"
                   placeholder="I think the bot should have..."
                 />
-                <p className="mt-2 text-xs text-[var(--text-faint)]">Feedback is submitted anonymously.</p>
+                <p className="mt-2 text-xs text-[var(--text-faint)]">
+                  Feedback is submitted anonymously.
+                </p>
               </div>
-              
-              <div className="pt-4 flex gap-3">
+
+              <div className="flex gap-3 pt-4">
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="flex-1 py-3 px-4 bg-[var(--bg-surface-elevated)] text-white font-bold rounded-xl border border-[var(--line)] hover:bg-[var(--line)] transition-colors"
+                  className="flex-1 rounded-xl border border-[var(--line)] bg-[var(--bg-surface-elevated)] px-4 py-3 font-bold text-white transition-colors hover:bg-[var(--line)]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 py-3 px-4 bg-[var(--primary)] text-white font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-3 font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
                 >
-                  {isSubmitting && <LoaderIcon className="h-4 w-4 animate-spin" />}
+                  {isSubmitting ? <LoaderIcon className="h-4 w-4 animate-spin" /> : null}
                   {editingId ? "Save Changes" : "Submit"}
                 </button>
               </div>
             </form>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {feedbackToDelete && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-[var(--bg-surface)] border border-[var(--line)] rounded-2xl shadow-2xl overflow-hidden p-6 text-center">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-500/10 mb-4">
+      {feedbackToDelete ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-surface)] p-6 text-center shadow-2xl">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10">
               <TrashIcon className="h-6 w-6 text-red-500" />
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">Delete Feedback</h3>
-            <p className="text-sm text-[var(--text-muted)] mb-6">
+            <h3 className="mb-2 text-xl font-bold text-white">Delete Feedback</h3>
+            <p className="mb-6 text-sm text-[var(--text-muted)]">
               Are you sure you want to delete this feedback post? This action cannot be undone.
             </p>
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={() => setFeedbackToDelete(null)}
-                className="flex-1 py-2.5 px-4 bg-[var(--bg-surface-elevated)] text-white font-bold rounded-xl border border-[var(--line)] hover:bg-[var(--line)] transition-colors"
+                className="flex-1 rounded-xl border border-[var(--line)] bg-[var(--bg-surface-elevated)] px-4 py-2.5 font-bold text-white transition-colors hover:bg-[var(--line)]"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={confirmDeleteFeedback}
-                className="flex-1 py-2.5 px-4 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 transition-colors shadow-[0_0_15px_rgba(239,68,68,0.3)]"
+                className="flex-1 rounded-xl bg-red-500 px-4 py-2.5 font-bold text-white transition-colors hover:bg-red-600"
               >
                 Delete
               </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

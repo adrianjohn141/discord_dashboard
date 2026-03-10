@@ -3,7 +3,7 @@ import "server-only";
 import type { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 
-import { getGuildAccessRecord } from "@/lib/db/queries";
+import { getAccessibleGuilds } from "@/lib/db/queries";
 import { createClient } from "@/lib/supabase/server";
 import type { DashboardUser } from "@/types/dashboard";
 
@@ -18,6 +18,16 @@ function getPreferredDisplayName(user: User) {
     user.email ??
     "Discord User"
   );
+}
+
+export function buildDashboardUser(user: User): DashboardUser {
+  return {
+    id: user.id,
+    email: user.email ?? null,
+    displayName: String(getPreferredDisplayName(user)),
+    avatarUrl:
+      String(user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? "") || null,
+  };
 }
 
 export async function requireUserSession() {
@@ -35,15 +45,7 @@ export async function requireUserSession() {
 }
 
 export async function getCurrentDashboardUser(): Promise<DashboardUser> {
-  const user = await requireUserSession();
-
-  return {
-    id: user.id,
-    email: user.email ?? null,
-    displayName: String(getPreferredDisplayName(user)),
-    avatarUrl:
-      String(user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? "") || null,
-  };
+  return buildDashboardUser(await requireUserSession());
 }
 
 export async function getCurrentProviderToken() {
@@ -57,13 +59,21 @@ export async function getCurrentProviderToken() {
 
 export async function requireGuildAccess(guildId: string) {
   const user = await requireUserSession();
-  const accessRecord = await getGuildAccessRecord(user.id, guildId);
+  const accessRecord =
+    (await getAccessibleGuilds(user.id)).find((guild) => guild.guildId === guildId) ?? null;
 
   if (!accessRecord?.canManage) {
     redirect("/dashboard");
   }
 
-  return { user, accessRecord };
+  return {
+    user,
+    accessRecord: {
+      guildId: accessRecord.guildId,
+      guildName: accessRecord.guildName,
+      canManage: accessRecord.canManage,
+    },
+  };
 }
 
 export function normalizeNextPath(next: string | null) {

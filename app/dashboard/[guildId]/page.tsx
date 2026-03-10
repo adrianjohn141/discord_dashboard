@@ -1,34 +1,19 @@
 import Link from "next/link";
 
-import { StatusPill } from "@/components/dashboard/status-pill";
 import {
   ArrowRightIcon,
-  AutomationIcon,
   BanIcon,
   CaseIcon,
   LogsIcon,
   WarningIcon,
 } from "@/components/dashboard/icons";
-import { requireGuildAccess } from "@/lib/auth/guards";
+import { requireDashboardGuildAccess } from "@/lib/dashboard/request-context";
 import { getGuildDashboardSummary } from "@/lib/db/queries";
-
-const dateFormatter = new Intl.DateTimeFormat("en", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
 
 const compactDateFormatter = new Intl.DateTimeFormat("en", {
   month: "short",
   day: "numeric",
 });
-
-function formatDate(value: string | null) {
-  if (!value) {
-    return "Not available";
-  }
-
-  return dateFormatter.format(new Date(value));
-}
 
 function formatShortDate(value: string | null) {
   if (!value) {
@@ -84,7 +69,7 @@ export default async function GuildOverviewPage({
   params: Promise<{ guildId: string }>;
 }) {
   const { guildId } = await params;
-  await requireGuildAccess(guildId);
+  await requireDashboardGuildAccess(guildId);
   const summary = await getGuildDashboardSummary(guildId);
 
   const latestCases = summary.latestModerationLogs.slice(0, 3);
@@ -117,8 +102,6 @@ export default async function GuildOverviewPage({
     },
   ];
   const maxActivity = Math.max(1, ...activityBars.map((bar) => bar.value));
-  const totalTrackedActivity = activityBars.reduce((sum, bar) => sum + bar.value, 0);
-
   const metrics = [
     {
       label: "Total Cases",
@@ -225,8 +208,51 @@ export default async function GuildOverviewPage({
                 View All <ArrowRightIcon className="h-4 w-4" />
               </Link>
             </div>
-            <div className="overflow-x-auto scrollbar-thin">
-              <table className="w-full text-left text-sm min-w-[600px]">
+            <div className="space-y-3 p-4 sm:hidden">
+              {latestCases.length === 0 ? (
+                <p className="rounded-[18px] border border-dashed border-[var(--line)] px-4 py-5 text-sm text-[var(--text-faint)]">
+                  No recent moderation cases are available yet.
+                </p>
+              ) : (
+                latestCases.map((log) => {
+                  const actionTone = getActionTone(log.action);
+
+                  return (
+                    <div key={log.id} className="control-card rounded-[22px] p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--text-faint)]">
+                            Case ID
+                          </p>
+                          <p className="mt-1 font-mono text-sm text-white">{formatCaseId(log.id)}</p>
+                        </div>
+                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${actionTone.badge}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${actionTone.dot}`} />
+                          {formatActionLabel(log.action)}
+                        </span>
+                      </div>
+                      <div className="mt-4 grid gap-3">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--text-faint)]">User</p>
+                          <p className="mt-1 text-sm text-white">{log.userId}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--text-faint)]">Moderator</p>
+                          <p className="mt-1 text-sm text-white">{log.moderatorId}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--text-faint)]">When</p>
+                          <p className="mt-1 text-sm text-[var(--text-muted)]">{formatShortDate(log.createdAt)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="hidden overflow-x-auto scrollbar-thin sm:block">
+              <table className="w-full min-w-[600px] text-left text-sm">
                 <thead>
                   <tr className="text-[var(--text-faint)] font-medium uppercase tracking-wider text-[10px] border-b border-[var(--line)]">
                     <th className="px-6 py-4">Case ID</th>

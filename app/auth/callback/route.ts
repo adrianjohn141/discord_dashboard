@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 
+import {
+  dashboardCacheTags,
+  revalidateDashboardTag,
+} from "@/lib/db/cache-tags";
 import { normalizeNextPath } from "@/lib/auth/guards";
 import { syncUserGuildAccess } from "@/lib/discord/guilds";
 import { upsertDashboardProfile } from "@/lib/db/mutations";
@@ -37,6 +41,7 @@ export async function GET(request: Request) {
     if (session?.provider_token) {
       try {
         await syncUserGuildAccess(user, session.provider_token);
+        revalidateDashboardTag(dashboardCacheTags.guildAccess(user.id));
       } catch {
         return NextResponse.redirect(`${origin}/dashboard?refresh=required`);
       }

@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+
+import {
+  dashboardCacheTags,
+  revalidateDashboardTag,
+} from "@/lib/db/cache-tags";
 import { requireUserSession } from "@/lib/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -28,6 +33,7 @@ export async function POST(
         .eq("user_id", user.id);
       
       if (error) throw error;
+      revalidateDashboardTag(dashboardCacheTags.feedback());
       return NextResponse.json({ starred: false });
     } else {
       // Star
@@ -40,6 +46,7 @@ export async function POST(
       // since the end result (user has starred it) is the same.
       if (error && error.code !== '23505') throw error;
       
+      revalidateDashboardTag(dashboardCacheTags.feedback());
       return NextResponse.json({ starred: true });
     }
   } catch (error) {

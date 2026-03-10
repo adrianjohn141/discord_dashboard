@@ -1,6 +1,7 @@
-import { requireGuildAccess } from "@/lib/auth/guards";
 import { TerminalIcon, BookIcon } from "@/components/dashboard/icons";
 import CustomCommandsManager from "@/components/dashboard/custom-commands-manager";
+import { requireDashboardGuildAccess } from "@/lib/dashboard/request-context";
+import { getCustomCommands } from "@/lib/db/queries";
 import Link from "next/link";
 
 export default async function GuildCommandsPage({
@@ -9,7 +10,10 @@ export default async function GuildCommandsPage({
   params: Promise<{ guildId: string }>;
 }) {
   const { guildId } = await params;
-  await requireGuildAccess(guildId);
+  const [, commands] = await Promise.all([
+    requireDashboardGuildAccess(guildId),
+    getCustomCommands(guildId),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -42,7 +46,7 @@ export default async function GuildCommandsPage({
         </Link>
       </div>
 
-      <CustomCommandsManager guildId={guildId} />
+      <CustomCommandsManager guildId={guildId} initialCommands={commands} />
     </div>
   );
 }

@@ -1,13 +1,18 @@
-import { requireUserSession, isGlobalAdmin } from "@/lib/auth/guards";
 import { FeedbackBoard } from "@/components/dashboard/feedback-board";
+import { isGlobalAdmin } from "@/lib/auth/guards";
+import { getDashboardRequestContext } from "@/lib/dashboard/request-context";
+import { getFeedbackRecords } from "@/lib/db/queries";
 
 export default async function FeedbackPage() {
-  const user = await requireUserSession();
-  const isAdmin = isGlobalAdmin(user as any);
+  const { user } = await getDashboardRequestContext();
+  const [feedback, isAdmin] = await Promise.all([
+    getFeedbackRecords(user.id),
+    Promise.resolve(isGlobalAdmin(user)),
+  ]);
 
   return (
     <div className="space-y-6">
-      <div className="table-panel p-8">
+      <div className="table-panel p-6 md:p-8">
         <div>
           <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-[var(--primary)]">
             Feedback & Questions
@@ -22,7 +27,7 @@ export default async function FeedbackPage() {
         </p>
       </div>
 
-      <FeedbackBoard isAdmin={isAdmin} />
+      <FeedbackBoard isAdmin={isAdmin} initialFeedback={feedback} />
     </div>
   );
 }

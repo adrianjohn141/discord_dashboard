@@ -1,11 +1,18 @@
 import "server-only";
 
-import { unstable_noStore as noStore } from "next/cache";
+import { unstable_cache } from "next/cache";
 
+import {
+  dashboardCacheTags,
+  dashboardCacheTtls,
+} from "@/lib/db/cache-tags";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   AccessibleGuild,
+  CustomCommandRecord,
   DashboardAuditLogRecord,
+  FeedbackCommentRecord,
+  FeedbackRecord,
   GuildChannelOption,
   GuildConfigRecord,
   GuildDashboardSummary,
@@ -35,6 +42,15 @@ const DEFAULT_GUILD_CONFIG: Omit<GuildConfigRecord, "guildId" | "createdAt"> = {
   antiAbuseBanWarnings: 4,
   antiAbuseWindowDays: 30,
 };
+
+function runCachedQuery<T>(
+  keyParts: string[],
+  tags: string[],
+  revalidate: number,
+  loader: () => Promise<T>,
+) {
+  return unstable_cache(loader, keyParts, { tags, revalidate })();
+}
 
 function isMissingGuildCatalogError(error: { code?: string | null; message?: string | null }) {
   const code = error.code ?? "";
@@ -191,8 +207,30 @@ function mapAuditLog(row: Record<string, unknown>): DashboardAuditLogRecord {
   };
 }
 
-export async function getAccessibleGuilds(userId: string) {
-  noStore();
+function mapCustomCommand(row: Record<string, unknown>): CustomCommandRecord {
+  return {
+    id: String(row.id),
+    guildId: String(row.guild_id),
+    name: String(row.name),
+    response: String(row.response),
+    adminOnly: Boolean(row.admin_only),
+    isEmbed: Boolean(row.is_embed),
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+  };
+}
+
+function mapFeedbackComment(row: Record<string, unknown>): FeedbackCommentRecord {
+  return {
+    id: String(row.id),
+    feedbackId: String(row.feedback_id),
+    content: String(row.content),
+    createdAt: String(row.created_at),
+    isAdmin: Boolean(row.is_admin),
+  };
+}
+
+async function readAccessibleGuilds(userId: string) {
   const admin = createAdminClient();
 
   const { data: accessRows, error: accessError } = await admin
@@ -224,7 +262,7 @@ export async function getAccessibleGuilds(userId: string) {
   return (accessRows ?? []).map((row) => {
     const status = managedGuildMap.get(String(row.guild_id));
 
-    const result: AccessibleGuild = {
+    return {
       guildId: String(row.guild_id),
       guildName: String(row.guild_name),
       iconUrl: (row.icon_url as string | null) ?? status?.iconUrl ?? null,
@@ -234,39 +272,11 @@ export async function getAccessibleGuilds(userId: string) {
       botJoinedAt: status?.botJoinedAt ?? null,
       lastSeenAt: status?.lastSeenAt ?? null,
       lastHeartbeatAt: status?.lastHeartbeatAt ?? null,
-    };
-
-    return result;
+    } satisfies AccessibleGuild;
   });
 }
 
-export async function getGuildAccessRecord(userId: string, guildId: string) {
-  noStore();
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("dashboard_guild_access_v")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("guild_id", guildId)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  if (!data) {
-    return null;
-  }
-
-  return {
-    guildId: String(data.guild_id),
-    guildName: String(data.guild_name),
-    canManage: Boolean(data.can_manage),
-  };
-}
-
-export async function getGuildConfig(guildId: string) {
-  noStore();
+async function readGuildConfig(guildId: string) {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("dashboard_guild_config_v")
@@ -281,8 +291,7 @@ export async function getGuildConfig(guildId: string) {
   return mapGuildConfig((data as Record<string, unknown> | null) ?? null, guildId);
 }
 
-export async function getManagedGuildStatus(guildId: string) {
-  noStore();
+async function readManagedGuildStatus(guildId: string) {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("dashboard_managed_guilds_v")
@@ -297,8 +306,7 @@ export async function getManagedGuildStatus(guildId: string) {
   return mapManagedGuild((data as Record<string, unknown> | null) ?? null);
 }
 
-export async function getGuildResourceCatalog(guildId: string): Promise<GuildResourceCatalog> {
-  noStore();
+async function readGuildResourceCatalog(guildId: string): Promise<GuildResourceCatalog> {
   const admin = createAdminClient();
 
   const [channelsResponse, rolesResponse] = await Promise.all([
@@ -347,8 +355,7 @@ export async function getGuildResourceCatalog(guildId: string): Promise<GuildRes
   };
 }
 
-export async function getGuildDashboardSummary(guildId: string): Promise<GuildDashboardSummary> {
-  noStore();
+async function readGuildDashboardSummary(guildId: string): Promise<GuildDashboardSummary> {
   const admin = createAdminClient();
 
   const [
@@ -363,8 +370,8 @@ export async function getGuildDashboardSummary(guildId: string): Promise<GuildDa
     latestWarningsResponse,
     latestAuditResponse,
   ] = await Promise.all([
-    getGuildConfig(guildId),
-    getManagedGuildStatus(guildId),
+    readGuildConfig(guildId),
+    readManagedGuildStatus(guildId),
     admin.from("dashboard_warnings_v").select("id", { count: "exact", head: true }).eq("guild_id", guildId),
     admin
       .from("dashboard_moderation_logs_v")
@@ -438,8 +445,7 @@ export async function getGuildDashboardSummary(guildId: string): Promise<GuildDa
   };
 }
 
-export async function getGuildLogs(guildId: string, action?: string) {
-  noStore();
+async function readGuildLogs(guildId: string, action?: string) {
   const admin = createAdminClient();
 
   let moderationQuery = admin
@@ -481,8 +487,7 @@ export async function getGuildLogs(guildId: string, action?: string) {
   };
 }
 
-export async function getGuildTemporaryActions(guildId: string) {
-  noStore();
+async function readGuildTemporaryActions(guildId: string) {
   const admin = createAdminClient();
 
   const [temporaryRolesResponse, temporaryBansResponse, roleLocksResponse] =
@@ -530,4 +535,178 @@ export async function getGuildTemporaryActions(guildId: string) {
       mapRoleLock(row as Record<string, unknown>),
     ),
   };
+}
+
+async function readCustomCommands(guildId: string) {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("dashboard_custom_commands_v")
+    .select("*")
+    .eq("guild_id", guildId)
+    .order("name", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map((row) => mapCustomCommand(row as Record<string, unknown>));
+}
+
+async function readFeedbackRecords(userId: string) {
+  const admin = createAdminClient();
+  const [feedbackResponse, userStarsResponse, allStarsResponse, commentsResponse] =
+    await Promise.all([
+      admin.from("feedback").select("*").order("created_at", { ascending: false }),
+      admin.from("feedback_stars").select("feedback_id").eq("user_id", userId),
+      admin.from("feedback_stars").select("feedback_id"),
+      admin.from("feedback_comments").select("*").order("created_at", { ascending: true }),
+    ]);
+
+  if (feedbackResponse.error) {
+    throw feedbackResponse.error;
+  }
+
+  if (userStarsResponse.error) {
+    throw userStarsResponse.error;
+  }
+
+  if (allStarsResponse.error) {
+    throw allStarsResponse.error;
+  }
+
+  if (commentsResponse.error) {
+    throw commentsResponse.error;
+  }
+
+  const starCounts = (allStarsResponse.data ?? []).reduce<Record<string, number>>((acc, row) => {
+    const feedbackId = String(row.feedback_id);
+    acc[feedbackId] = (acc[feedbackId] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const starredSet = new Set((userStarsResponse.data ?? []).map((row) => String(row.feedback_id)));
+  const commentsByFeedbackId = new Map<string, FeedbackCommentRecord[]>();
+
+  for (const row of commentsResponse.data ?? []) {
+    const comment = mapFeedbackComment(row as Record<string, unknown>);
+    const bucket = commentsByFeedbackId.get(comment.feedbackId);
+
+    if (bucket) {
+      bucket.push(comment);
+      continue;
+    }
+
+    commentsByFeedbackId.set(comment.feedbackId, [comment]);
+  }
+
+  return (feedbackResponse.data ?? []).map((row) => {
+    const feedbackId = String(row.id);
+
+    return {
+      id: feedbackId,
+      content: String(row.content),
+      status: row.status === "done" ? "done" : "open",
+      createdAt: String(row.created_at),
+      starsCount: starCounts[feedbackId] ?? 0,
+      hasStarred: starredSet.has(feedbackId),
+      isAuthor: String(row.user_id) === userId,
+      comments: commentsByFeedbackId.get(feedbackId) ?? [],
+    } satisfies FeedbackRecord;
+  });
+}
+
+export async function getAccessibleGuilds(userId: string) {
+  return runCachedQuery(
+    ["guild-access", userId],
+    [dashboardCacheTags.guildAccess(userId)],
+    dashboardCacheTtls.guildAccess,
+    () => readAccessibleGuilds(userId),
+  );
+}
+
+export async function getGuildAccessRecord(userId: string, guildId: string) {
+  const guilds = await getAccessibleGuilds(userId);
+  const accessRecord = guilds.find((guild) => guild.guildId === guildId) ?? null;
+
+  if (!accessRecord) {
+    return null;
+  }
+
+  return {
+    guildId: accessRecord.guildId,
+    guildName: accessRecord.guildName,
+    canManage: accessRecord.canManage,
+  };
+}
+
+export async function getGuildConfig(guildId: string) {
+  return runCachedQuery(
+    ["guild-config", guildId],
+    [dashboardCacheTags.guildConfig(guildId)],
+    dashboardCacheTtls.guildConfig,
+    () => readGuildConfig(guildId),
+  );
+}
+
+export async function getManagedGuildStatus(guildId: string) {
+  return runCachedQuery(
+    ["guild-summary-status", guildId],
+    [dashboardCacheTags.guildSummary(guildId)],
+    dashboardCacheTtls.guildSummary,
+    () => readManagedGuildStatus(guildId),
+  );
+}
+
+export async function getGuildResourceCatalog(guildId: string): Promise<GuildResourceCatalog> {
+  return runCachedQuery(
+    ["guild-resources", guildId],
+    [dashboardCacheTags.guildResources(guildId)],
+    dashboardCacheTtls.guildResources,
+    () => readGuildResourceCatalog(guildId),
+  );
+}
+
+export async function getGuildDashboardSummary(guildId: string): Promise<GuildDashboardSummary> {
+  return runCachedQuery(
+    ["guild-summary", guildId],
+    [dashboardCacheTags.guildSummary(guildId)],
+    dashboardCacheTtls.guildSummary,
+    () => readGuildDashboardSummary(guildId),
+  );
+}
+
+export async function getGuildLogs(guildId: string, action?: string) {
+  return runCachedQuery(
+    ["guild-logs", guildId, action ?? "all"],
+    [dashboardCacheTags.guildLogs(guildId)],
+    dashboardCacheTtls.guildLogs,
+    () => readGuildLogs(guildId, action),
+  );
+}
+
+export async function getGuildTemporaryActions(guildId: string) {
+  return runCachedQuery(
+    ["guild-temp-actions", guildId],
+    [dashboardCacheTags.guildTempActions(guildId)],
+    dashboardCacheTtls.guildTempActions,
+    () => readGuildTemporaryActions(guildId),
+  );
+}
+
+export async function getCustomCommands(guildId: string): Promise<CustomCommandRecord[]> {
+  return runCachedQuery(
+    ["commands", guildId],
+    [dashboardCacheTags.commands(guildId)],
+    dashboardCacheTtls.commands,
+    () => readCustomCommands(guildId),
+  );
+}
+
+export async function getFeedbackRecords(userId: string): Promise<FeedbackRecord[]> {
+  return runCachedQuery(
+    ["feedback", userId],
+    [dashboardCacheTags.feedback()],
+    dashboardCacheTtls.feedback,
+    () => readFeedbackRecords(userId),
+  );
 }

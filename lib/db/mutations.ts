@@ -1,9 +1,12 @@
 import "server-only";
 
 import type { User } from "@supabase/supabase-js";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import {
+  dashboardCacheTags,
+  revalidateDashboardTags,
+} from "@/lib/db/cache-tags";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { GuildConfigRecord } from "@/types/dashboard";
 
@@ -196,9 +199,10 @@ export async function updateGuildConfig(
       autoroleId: parsed.autoroleId,
     },
   });
-
-  revalidatePath(`/dashboard/${parsed.guildId}`);
-  revalidatePath(`/dashboard/${parsed.guildId}/settings`);
+  revalidateDashboardTags([
+    dashboardCacheTags.guildConfig(parsed.guildId),
+    dashboardCacheTags.guildSummary(parsed.guildId),
+  ]);
 }
 
 export async function updateAntiAbusePolicy(
@@ -251,7 +255,8 @@ export async function updateAntiAbusePolicy(
       antiAbuseWindowDays: parsed.antiAbuseWindowDays,
     },
   });
-
-  revalidatePath(`/dashboard/${parsed.guildId}`);
-  revalidatePath(`/dashboard/${parsed.guildId}/automation`);
+  revalidateDashboardTags([
+    dashboardCacheTags.guildConfig(parsed.guildId),
+    dashboardCacheTags.guildSummary(parsed.guildId),
+  ]);
 }

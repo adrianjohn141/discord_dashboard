@@ -1,55 +1,88 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { TerminalIcon, PlusIcon, TrashIcon, LoaderIcon, PencilIcon, XIcon } from "@/components/dashboard/icons";
+import { useEffect, useState } from "react";
+
+import {
+  LoaderIcon,
+  PencilIcon,
+  PlusIcon,
+  TerminalIcon,
+  TrashIcon,
+  XIcon,
+} from "@/components/dashboard/icons";
 import type { CustomCommandRecord } from "@/types/dashboard";
 
 interface CustomCommandsManagerProps {
   guildId: string;
+  initialCommands: CustomCommandRecord[];
 }
 
-export default function CustomCommandsManager({ guildId }: CustomCommandsManagerProps) {
-  const [commands, setCommands] = useState<CustomCommandRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+function mapCommandResponse(data: unknown): CustomCommandRecord[] {
+  if (!Array.isArray(data)) {
+    return [];
+  }
+
+  return data.map((command) => {
+    const row = command as Record<string, unknown>;
+
+    return {
+      id: String(row.id),
+      guildId: String(row.guild_id),
+      name: String(row.name),
+      response: String(row.response),
+      adminOnly: Boolean(row.admin_only),
+      isEmbed: Boolean(row.is_embed),
+      createdAt: String(row.created_at),
+      updatedAt: String(row.updated_at),
+    };
+  });
+}
+
+export default function CustomCommandsManager({
+  guildId,
+  initialCommands,
+}: CustomCommandsManagerProps) {
+  const [commands, setCommands] = useState<CustomCommandRecord[]>(initialCommands);
   const [isSaving, setIsSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCommand, setEditingCommand] = useState<CustomCommandRecord | null>(null);
-  const [formData, setFormData] = useState({ name: "", response: "", adminOnly: false, isEmbed: false });
+  const [formData, setFormData] = useState({
+    name: "",
+    response: "",
+    adminOnly: false,
+    isEmbed: false,
+  });
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [commandToDelete, setCommandToDelete] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchCommands();
-  }, [guildId]);
+    setCommands(initialCommands);
+  }, [initialCommands]);
 
   const fetchCommands = async () => {
-    setIsLoading(true);
     try {
-      const res = await fetch(`/api/guilds/${guildId}/commands`);
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        // Map snake_case to camelCase
-        setCommands(data.map(cmd => ({
-          ...cmd,
-          adminOnly: cmd.admin_only,
-          isEmbed: cmd.is_embed
-        })));
-      }
-    } catch (err) {
-      console.error("Failed to fetch commands:", err);
-    } finally {
-      setIsLoading(false);
+      const response = await fetch(`/api/guilds/${guildId}/commands`);
+      const data = await response.json();
+      setCommands(mapCommandResponse(data));
+    } catch (error) {
+      console.error("Failed to fetch commands:", error);
     }
   };
 
   const handleOpenModal = (command?: CustomCommandRecord) => {
     if (command) {
       setEditingCommand(command);
-      setFormData({ name: command.name, response: command.response, adminOnly: command.adminOnly, isEmbed: command.isEmbed });
+      setFormData({
+        name: command.name,
+        response: command.response,
+        adminOnly: command.adminOnly,
+        isEmbed: command.isEmbed,
+      });
     } else {
       setEditingCommand(null);
       setFormData({ name: "", response: "", adminOnly: false, isEmbed: false });
     }
+
     setErrorMsg(null);
     setIsModalOpen(true);
   };
@@ -61,79 +94,79 @@ export default function CustomCommandsManager({ guildId }: CustomCommandsManager
     setErrorMsg(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name || !formData.response) return;
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!formData.name || !formData.response) {
+      return;
+    }
+
     setErrorMsg(null);
 
     if (formData.isEmbed) {
       try {
         JSON.parse(formData.response);
-      } catch (err) {
-        setErrorMsg("Invalid Embed format. Please provide a valid JSON object for the embed.");
+      } catch {
+        setErrorMsg("Invalid embed format. Please provide valid JSON.");
         return;
       }
     }
 
     setIsSaving(true);
+
     try {
-      const res = await fetch(`/api/guilds/${guildId}/commands`, {
+      const response = await fetch(`/api/guilds/${guildId}/commands`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
-      if (res.ok) {
-        await fetchCommands();
-        handleCloseModal();
-      } else {
-        const data = await res.json();
-        setErrorMsg(data.error || "Failed to save command.");
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        setErrorMsg(data?.error ?? "Failed to save command.");
+        return;
       }
-    } catch (err) {
-      console.error("Failed to save command:", err);
+
+      await fetchCommands();
+      handleCloseModal();
+    } catch (error) {
+      console.error("Failed to save command:", error);
       setErrorMsg("An unexpected error occurred.");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleDelete = (name: string) => {
-    setCommandToDelete(name);
-  };
-
   const confirmDelete = async () => {
-    if (!commandToDelete) return;
+    if (!commandToDelete) {
+      return;
+    }
+
     try {
-      const res = await fetch(`/api/guilds/${guildId}/commands?name=${commandToDelete}`, {
+      const response = await fetch(`/api/guilds/${guildId}/commands?name=${commandToDelete}`, {
         method: "DELETE",
       });
 
-      if (res.ok) {
-        setCommands(commands.filter((c) => c.name !== commandToDelete));
+      if (response.ok) {
+        setCommands((current) => current.filter((command) => command.name !== commandToDelete));
       }
-    } catch (err) {
-      console.error("Failed to delete command:", err);
+    } catch (error) {
+      console.error("Failed to delete command:", error);
     } finally {
       setCommandToDelete(null);
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoaderIcon className="h-8 w-8 animate-spin text-[var(--primary)]" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-xl font-bold text-white">Custom Commands</h2>
-        <button 
+        <button
+          type="button"
           onClick={() => handleOpenModal()}
-          className="primary-button flex items-center gap-2"
+          className="primary-button flex items-center justify-center gap-2"
         >
           <PlusIcon className="h-4 w-4" />
           Create New Command
@@ -141,195 +174,244 @@ export default function CustomCommandsManager({ guildId }: CustomCommandsManager
       </div>
 
       {commands.length === 0 ? (
-        <div className="table-panel min-h-[300px] flex flex-col items-center justify-center p-12 text-center">
-          <div className="w-16 h-16 bg-[var(--bg-surface-elevated)] rounded-full flex items-center justify-center mb-6 border border-[var(--line)]">
+        <div className="table-panel flex min-h-[300px] flex-col items-center justify-center p-12 text-center">
+          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--bg-surface-elevated)]">
             <TerminalIcon className="h-8 w-8 text-[var(--text-faint)]" />
           </div>
           <h3 className="text-xl font-bold text-white">No custom commands</h3>
-          <p className="mt-2 text-[var(--text-muted)] max-w-sm">
-            You haven&apos;t created any custom commands for this server yet. 
+          <p className="mt-2 max-w-sm text-[var(--text-muted)]">
+            You have not created any custom commands for this server yet.
           </p>
         </div>
       ) : (
         <div className="grid gap-4">
           {commands.map((command) => (
-            <div key={command.id} className="table-panel p-5 flex items-center justify-between hover:border-[var(--primary)]/30 transition-colors">
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-[var(--bg-surface-elevated)] rounded-lg border border-[var(--line)] text-[var(--primary)]">
-                  <span className="font-bold">!</span>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-bold text-white text-lg">{command.name}</h4>
-                    {command.adminOnly && (
-                      <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20 rounded-full">
-                        Admin Only
-                      </span>
-                    )}
-                    {command.isEmbed && (
-                      <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full">
-                        Embed
-                      </span>
-                    )}
+            <div
+              key={command.id}
+              className="table-panel p-5 transition-colors hover:border-[var(--primary)]/30"
+            >
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-start gap-4">
+                  <div className="rounded-lg border border-[var(--line)] bg-[var(--bg-surface-elevated)] p-2 text-[var(--primary)]">
+                    <span className="font-bold">!</span>
                   </div>
-                  <p className="text-sm text-[var(--text-faint)] truncate max-w-md">
-                    {command.response}
-                  </p>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h4 className="text-lg font-bold text-white">{command.name}</h4>
+                      {command.adminOnly ? (
+                        <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-400">
+                          Admin Only
+                        </span>
+                      ) : null}
+                      {command.isEmbed ? (
+                        <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-400">
+                          Embed
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-2 max-w-2xl break-words text-sm text-[var(--text-faint)]">
+                      {command.response}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => handleOpenModal(command)}
-                  className="p-2 hover:bg-[var(--bg-surface-elevated)] rounded-lg text-[var(--text-faint)] hover:text-white transition-colors"
-                >
-                  <PencilIcon className="h-4 w-4" />
-                </button>
-                <button 
-                  onClick={() => handleDelete(command.name)}
-                  className="p-2 hover:bg-red-500/10 rounded-lg text-[var(--text-faint)] hover:text-red-500 transition-colors"
-                >
-                  <TrashIcon className="h-4 w-4" />
-                </button>
+
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenModal(command)}
+                    className="rounded-lg p-2 text-[var(--text-faint)] transition-colors hover:bg-[var(--bg-surface-elevated)] hover:text-white"
+                  >
+                    <PencilIcon className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCommandToDelete(command.name)}
+                    className="rounded-lg p-2 text-[var(--text-faint)] transition-colors hover:bg-red-500/10 hover:text-red-500"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-[var(--bg-surface)] border border-[var(--line)] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-[var(--line)] flex justify-between items-center flex-shrink-0">
+      {isModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-surface)] shadow-2xl">
+            <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--line)] p-6">
               <h3 className="text-xl font-bold text-white">
                 {editingCommand ? "Edit Command" : "Create New Command"}
               </h3>
-              <button onClick={handleCloseModal} className="text-[var(--text-faint)] hover:text-white">
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                className="text-[var(--text-faint)] hover:text-white"
+              >
                 <XIcon className="h-6 w-6" />
               </button>
             </div>
-            
-            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+
+            <div className="custom-scrollbar flex-1 overflow-y-auto p-6">
               <form id="custom-command-form" onSubmit={handleSubmit} className="space-y-6">
-                {errorMsg && (
-                  <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-medium">
-                    ⚠️ {errorMsg}
+                {errorMsg ? (
+                  <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm font-medium text-red-400">
+                    Warning: {errorMsg}
                   </div>
-                )}
+                ) : null}
+
                 <div>
-                  <label className="block text-sm font-bold text-[var(--text-faint)] uppercase tracking-wider mb-2">
+                  <label className="mb-2 block text-sm font-bold uppercase tracking-wider text-[var(--text-faint)]">
                     Command Name
                   </label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-faint)] font-bold text-lg">!</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-[var(--text-faint)]">
+                      !
+                    </span>
                     <input
                       type="text"
                       required
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value.replace(/[^a-zA-Z0-9-]/g, "") })}
-                      className="w-full bg-[var(--bg-input)] border border-[var(--line)] rounded-xl py-3 pl-8 pr-4 text-white placeholder-[var(--text-faint)] focus:outline-none focus:border-[var(--primary)] transition-colors"
+                      onChange={(event) =>
+                        setFormData((current) => ({
+                          ...current,
+                          name: event.target.value.replace(/[^a-zA-Z0-9-]/g, ""),
+                        }))
+                      }
+                      className="w-full rounded-xl border border-[var(--line)] bg-[var(--bg-input)] py-3 pl-8 pr-4 text-white placeholder-[var(--text-faint)] transition-colors focus:border-[var(--primary)] focus:outline-none"
                       placeholder="hello"
                     />
                   </div>
-                  <p className="mt-2 text-xs text-[var(--text-faint)]">Letters, numbers, and dashes only.</p>
+                  <p className="mt-2 text-xs text-[var(--text-faint)]">
+                    Letters, numbers, and dashes only.
+                  </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-[var(--text-faint)] uppercase tracking-wider mb-2">
+                  <label className="mb-2 block text-sm font-bold uppercase tracking-wider text-[var(--text-faint)]">
                     Response Text
                   </label>
                   <textarea
                     required
                     rows={4}
                     value={formData.response}
-                    onChange={(e) => setFormData({ ...formData, response: e.target.value })}
-                    className="w-full bg-[var(--bg-input)] border border-[var(--line)] rounded-xl py-3 px-4 text-white placeholder-[var(--text-faint)] focus:outline-none focus:border-[var(--primary)] transition-colors resize-none font-mono text-sm"
-                    placeholder={formData.isEmbed ? '{\n  "title": "Hello {user.name}!",\n  "description": "Welcome to {server}"\n}' : "Hello {user}! Welcome to the server."}
+                    onChange={(event) =>
+                      setFormData((current) => ({ ...current, response: event.target.value }))
+                    }
+                    className="w-full resize-none rounded-xl border border-[var(--line)] bg-[var(--bg-input)] px-4 py-3 font-mono text-sm text-white placeholder-[var(--text-faint)] transition-colors focus:border-[var(--primary)] focus:outline-none"
+                    placeholder={
+                      formData.isEmbed
+                        ? '{\n  "title": "Hello {user.name}!",\n  "description": "Welcome to {server}"\n}'
+                        : "Hello {user}! Welcome to the server."
+                    }
                   />
-                  <div className="mt-3 flex flex-wrap gap-1.5 max-h-32 overflow-y-auto custom-scrollbar pr-2">
+                  <div className="custom-scrollbar mt-3 flex max-h-32 flex-wrap gap-1.5 overflow-y-auto pr-2">
                     {[
-                      { tag: "{user}", hint: "Mentions the user" },
-                      { tag: "{user.id}", hint: "User's ID" },
-                      { tag: "{user.name}", hint: "User's name" },
-                      { tag: "{user.avatar}", hint: "User's avatar URL" },
-                      { tag: "{user.created_at}", hint: "User account creation date" },
-                      { tag: "{user.joined_at}", hint: "User server join date" },
-                      { tag: "{user.color}", hint: "User's highest role color" },
-                      { tag: "{user.top_role}", hint: "User's highest role name" },
-                      { tag: "{server}", hint: "Server name" },
-                      { tag: "{server.id}", hint: "Server ID" },
-                      { tag: "{server.member_count}", hint: "Member count" },
-                      { tag: "{server.icon}", hint: "Server icon URL" },
-                      { tag: "{server.owner_id}", hint: "Server owner's ID" },
-                      { tag: "{server.created_at}", hint: "Server creation date" },
-                      { tag: "{server.boost_count}", hint: "Server boost count" },
-                      { tag: "{channel}", hint: "Channel mention" },
-                      { tag: "{channel.id}", hint: "Channel ID" },
-                      { tag: "{channel.topic}", hint: "Channel topic" },
-                      { tag: "{message.id}", hint: "Command message ID" },
-                      { tag: "{message.link}", hint: "Link to command message" },
-                      { tag: "{time}", hint: "Current time" },
-                      { tag: "{date}", hint: "Current date" },
-                      { tag: "{timestamp}", hint: "Current unix timestamp" },
-                      { tag: "{args}", hint: "All arguments" },
-                      { tag: "{arg:1}", hint: "1st argument" },
-                    ].map((v) => (
+                      "{user}",
+                      "{user.id}",
+                      "{user.name}",
+                      "{user.avatar}",
+                      "{user.created_at}",
+                      "{user.joined_at}",
+                      "{user.color}",
+                      "{user.top_role}",
+                      "{server}",
+                      "{server.id}",
+                      "{server.member_count}",
+                      "{server.icon}",
+                      "{server.owner_id}",
+                      "{server.created_at}",
+                      "{server.boost_count}",
+                      "{channel}",
+                      "{channel.id}",
+                      "{channel.topic}",
+                      "{message.id}",
+                      "{message.link}",
+                      "{time}",
+                      "{date}",
+                      "{timestamp}",
+                      "{args}",
+                      "{arg:1}",
+                    ].map((tag) => (
                       <button
-                        key={v.tag}
+                        key={tag}
                         type="button"
-                        onClick={() => setFormData({ ...formData, response: formData.response + v.tag })}
-                        className="text-[10px] px-2 py-1 bg-[var(--bg-surface-elevated)] rounded border border-[var(--line)] text-[var(--text-faint)] hover:text-white hover:border-[var(--primary)] transition-colors"
-                        title={v.hint}
+                        onClick={() =>
+                          setFormData((current) => ({
+                            ...current,
+                            response: current.response + tag,
+                          }))
+                        }
+                        className="rounded border border-[var(--line)] bg-[var(--bg-surface-elevated)] px-2 py-1 text-[10px] text-[var(--text-faint)] transition-colors hover:border-[var(--primary)] hover:text-white"
                       >
-                        {v.tag}
+                        {tag}
                       </button>
                     ))}
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-3">
-                  <div className="flex items-center justify-between p-4 bg-[var(--bg-surface-elevated)] border border-[var(--line)] rounded-xl">
+                  <div className="flex items-center justify-between rounded-xl border border-[var(--line)] bg-[var(--bg-surface-elevated)] p-4">
                     <div>
                       <h4 className="text-sm font-bold text-white">Admin Only</h4>
-                      <p className="text-xs text-[var(--text-faint)] mt-0.5">Restrict this command to server administrators.</p>
+                      <p className="mt-0.5 text-xs text-[var(--text-faint)]">
+                        Restrict this command to server administrators.
+                      </p>
                     </div>
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, adminOnly: !formData.adminOnly })}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                        formData.adminOnly ? 'bg-[var(--primary)]' : 'bg-[var(--line)]'
+                      onClick={() =>
+                        setFormData((current) => ({
+                          ...current,
+                          adminOnly: !current.adminOnly,
+                        }))
+                      }
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        formData.adminOnly ? "bg-[var(--primary)]" : "bg-[var(--line)]"
                       }`}
                     >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.adminOnly ? 'translate-x-6' : 'translate-x-1'}`} />
+                      <span
+                        className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                          formData.adminOnly ? "translate-x-6" : "translate-x-1"
+                        }`}
+                      />
                     </button>
                   </div>
 
-                  <div className="flex items-center justify-between p-4 bg-[var(--bg-surface-elevated)] border border-[var(--line)] rounded-xl">
+                  <div className="flex items-center justify-between rounded-xl border border-[var(--line)] bg-[var(--bg-surface-elevated)] p-4">
                     <div>
                       <h4 className="text-sm font-bold text-white">Send as Embed</h4>
-                      <p className="text-xs text-[var(--text-faint)] mt-0.5">Treat the response text as JSON for a rich embed.</p>
+                      <p className="mt-0.5 text-xs text-[var(--text-faint)]">
+                        Treat the response text as JSON for a rich embed.
+                      </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => {
-                        setFormData({ ...formData, isEmbed: !formData.isEmbed });
+                        setFormData((current) => ({ ...current, isEmbed: !current.isEmbed }));
                         setErrorMsg(null);
                       }}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                        formData.isEmbed ? 'bg-[var(--primary)]' : 'bg-[var(--line)]'
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        formData.isEmbed ? "bg-[var(--primary)]" : "bg-[var(--line)]"
                       }`}
                     >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.isEmbed ? 'translate-x-6' : 'translate-x-1'}`} />
+                      <span
+                        className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                          formData.isEmbed ? "translate-x-6" : "translate-x-1"
+                        }`}
+                      />
                     </button>
                   </div>
                 </div>
               </form>
             </div>
 
-            <div className="p-6 border-t border-[var(--line)] flex gap-3 flex-shrink-0 bg-[var(--bg-surface)]">
+            <div className="flex flex-shrink-0 gap-3 border-t border-[var(--line)] bg-[var(--bg-surface)] p-6">
               <button
                 type="button"
                 onClick={handleCloseModal}
-                className="flex-1 py-3 px-4 bg-[var(--bg-surface-elevated)] text-white font-bold rounded-xl border border-[var(--line)] hover:bg-[var(--line)] transition-colors"
+                className="flex-1 rounded-xl border border-[var(--line)] bg-[var(--bg-surface-elevated)] px-4 py-3 font-bold text-white transition-colors hover:bg-[var(--line)]"
               >
                 Cancel
               </button>
@@ -337,45 +419,46 @@ export default function CustomCommandsManager({ guildId }: CustomCommandsManager
                 type="submit"
                 form="custom-command-form"
                 disabled={isSaving}
-                className="flex-1 py-3 px-4 bg-[var(--primary)] text-white font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-3 font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
               >
-                {isSaving && <LoaderIcon className="h-4 w-4 animate-spin" />}
+                {isSaving ? <LoaderIcon className="h-4 w-4 animate-spin" /> : null}
                 {editingCommand ? "Update Command" : "Create Command"}
               </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {commandToDelete && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-[var(--bg-surface)] border border-[var(--line)] rounded-2xl shadow-2xl overflow-hidden p-6 text-center">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-500/10 mb-4">
+      {commandToDelete ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-surface)] p-6 text-center shadow-2xl">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10">
               <TrashIcon className="h-6 w-6 text-red-500" />
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">Delete Command</h3>
-            <p className="text-sm text-[var(--text-muted)] mb-6">
-              Are you sure you want to delete the command <strong className="text-white">!{commandToDelete}</strong>? This action cannot be undone.
+            <h3 className="mb-2 text-xl font-bold text-white">Delete Command</h3>
+            <p className="mb-6 text-sm text-[var(--text-muted)]">
+              Are you sure you want to delete the command{" "}
+              <strong className="text-white">!{commandToDelete}</strong>? This action cannot be undone.
             </p>
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={() => setCommandToDelete(null)}
-                className="flex-1 py-2.5 px-4 bg-[var(--bg-surface-elevated)] text-white font-bold rounded-xl border border-[var(--line)] hover:bg-[var(--line)] transition-colors"
+                className="flex-1 rounded-xl border border-[var(--line)] bg-[var(--bg-surface-elevated)] px-4 py-2.5 font-bold text-white transition-colors hover:bg-[var(--line)]"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={confirmDelete}
-                className="flex-1 py-2.5 px-4 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 transition-colors shadow-[0_0_15px_rgba(239,68,68,0.3)]"
+                className="flex-1 rounded-xl bg-red-500 px-4 py-2.5 font-bold text-white transition-colors hover:bg-red-600"
               >
                 Delete
               </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

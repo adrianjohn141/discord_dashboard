@@ -1,5 +1,5 @@
 import { LogTable } from "@/components/logs/log-table";
-import { requireGuildAccess } from "@/lib/auth/guards";
+import { requireDashboardGuildAccess } from "@/lib/dashboard/request-context";
 import { getGuildLogs, getManagedGuildStatus } from "@/lib/db/queries";
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
@@ -24,7 +24,7 @@ export default async function GuildLogsPage({
 }) {
   const { guildId } = await params;
   const { action } = await searchParams;
-  await requireGuildAccess(guildId);
+  await requireDashboardGuildAccess(guildId);
   const [status, logs] = await Promise.all([
     getManagedGuildStatus(guildId),
     getGuildLogs(guildId, action),

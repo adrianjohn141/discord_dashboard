@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUserSession, isGlobalAdmin } from "@/lib/auth/guards";
+
+import {
+  dashboardCacheTags,
+  revalidateDashboardTag,
+} from "@/lib/db/cache-tags";
+import { isGlobalAdmin, requireUserSession } from "@/lib/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(
@@ -9,7 +14,7 @@ export async function POST(
   const { feedbackId } = await params;
   try {
     const user = await requireUserSession();
-    const adminUser = isGlobalAdmin(user as any);
+    const adminUser = isGlobalAdmin(user);
 
     const body = await req.json();
     if (!body.content || typeof body.content !== "string") {
@@ -29,6 +34,7 @@ export async function POST(
       .single();
 
     if (error) throw error;
+    revalidateDashboardTag(dashboardCacheTags.feedback());
     return NextResponse.json(data);
   } catch (error) {
     console.error("Failed to add comment:", error);

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 
+import {
+  dashboardCacheTags,
+  revalidateDashboardTag,
+} from "@/lib/db/cache-tags";
 import { getCurrentProviderToken, requireUserSession } from "@/lib/auth/guards";
 import { syncUserGuildAccess } from "@/lib/discord/guilds";
 
@@ -16,6 +20,7 @@ export async function POST() {
 
   try {
     const rows = await syncUserGuildAccess(user, providerToken);
+    revalidateDashboardTag(dashboardCacheTags.guildAccess(user.id));
     return NextResponse.json({
       ok: true,
       refreshed: rows.length,

@@ -1,4 +1,4 @@
-import { requireGuildAccess } from "@/lib/auth/guards";
+import { requireDashboardGuildAccess } from "@/lib/dashboard/request-context";
 import { getGuildConfig, getManagedGuildStatus } from "@/lib/db/queries";
 
 import { AutomationForm } from "./automation-form";
@@ -9,7 +9,7 @@ export default async function GuildAutomationPage({
   params: Promise<{ guildId: string }>;
 }) {
   const { guildId } = await params;
-  await requireGuildAccess(guildId);
+  await requireDashboardGuildAccess(guildId);
   const [config, status] = await Promise.all([
     getGuildConfig(guildId),
     getManagedGuildStatus(guildId),

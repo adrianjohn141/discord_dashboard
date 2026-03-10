@@ -16,7 +16,7 @@ export default function TermsOfServicePage() {
           <section>
             <h2 className="text-2xl font-semibold text-white mb-4">1. Acceptance of Terms</h2>
             <p>
-              By adding the Akbash Discord Moderation Bot ("the Service") to your Discord server or accessing our dashboard, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the Service and remove the bot from your server.
+              By adding the Akbash Discord Moderation Bot ({'"the Service"'}) to your Discord server or accessing our dashboard, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the Service and remove the bot from your server.
             </p>
           </section>
 
@@ -30,12 +30,12 @@ export default function TermsOfServicePage() {
           <section>
             <h2 className="text-2xl font-semibold text-white mb-4">3. User Conduct</h2>
             <p className="mb-4">
-              You are responsible for all activities that occur under your server's use of the Service. You agree not to use the Service to:
+              You are responsible for all activities that occur under your {"server's"} use of the Service. You agree not to use the Service to:
             </p>
             <ul className="list-disc pl-6 space-y-2">
               <li>Violate any applicable local, state, national, or international law.</li>
               <li>Violate the Discord Terms of Service or Community Guidelines.</li>
-              <li>Attempt to bypass, exploit, or disrupt the bot's infrastructure, rate limits, or security measures.</li>
+              <li>Attempt to bypass, exploit, or disrupt the {"bot's"} infrastructure, rate limits, or security measures.</li>
               <li>Use the bot to facilitate harassment, spam, or malicious behavior towards users.</li>
             </ul>
           </section>
@@ -50,7 +50,7 @@ export default function TermsOfServicePage() {
           <section>
             <h2 className="text-2xl font-semibold text-white mb-4">5. Limitation of Liability</h2>
             <p>
-              The Service is provided "as is" and "as available" without warranties of any kind. In no event shall the creators or operators of Akbash be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of data or server integrity, arising out of your use or inability to use the Service.
+              The Service is provided {'"as is"'} and {'"as available"'} without warranties of any kind. In no event shall the creators or operators of Akbash be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of data or server integrity, arising out of your use or inability to use the Service.
             </p>
           </section>
 

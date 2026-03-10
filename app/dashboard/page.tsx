@@ -1,74 +1,58 @@
 import { GuildCard } from "@/components/guild/guild-card";
-import { CaseIcon, GuildsIcon, PulseIcon, ShieldIcon } from "@/components/dashboard/icons";
+import { RefreshAccessButton } from "@/components/dashboard/refresh-access-button";
+import { getDashboardRequestContext } from "@/lib/dashboard/request-context";
 import { getBotInviteUrl } from "@/lib/discord/invite";
-import { requireUserSession } from "@/lib/auth/guards";
-import { getAccessibleGuilds } from "@/lib/db/queries";
 
-export default async function DashboardIndexPage() {
-  const user = await requireUserSession();
-  const guilds = await getAccessibleGuilds(user.id);
+export default async function DashboardIndexPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ refresh?: string }>;
+}) {
+  const [{ guilds }, resolvedSearchParams] = await Promise.all([
+    getDashboardRequestContext(),
+    searchParams,
+  ]);
 
-  const installedCount = guilds.filter((guild) => guild.botPresent).length;
   const missingGuilds = guilds.filter((guild) => !guild.botPresent);
-  const heartbeatCount = guilds.filter((guild) => guild.lastHeartbeatAt).length;
   const primaryInviteGuild = missingGuilds[0] ?? null;
   const primaryInviteUrl = getBotInviteUrl(
     primaryInviteGuild ? { guildId: primaryInviteGuild.guildId } : undefined,
   );
 
-  const stats = [
-    {
-      label: "Manageable Guilds",
-      value: guilds.length,
-      copy: "Discord servers visible in your current OAuth scope.",
-      icon: GuildsIcon,
-    },
-    {
-      label: "Bot Installed",
-      value: installedCount,
-      copy: "Guilds that the Python bot has reported into shared status state.",
-      icon: ShieldIcon,
-    },
-    {
-      label: "Heartbeat Active",
-      value: heartbeatCount,
-      copy: "Guilds with recent runtime heartbeat records available.",
-      icon: PulseIcon,
-    },
-    {
-      label: "Access Model",
-      value: "Scoped",
-      copy: "All writes are filtered through your server-side guild access snapshot.",
-      icon: CaseIcon,
-    },
-  ];
-
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="table-panel p-6 animate-slide-up">
-        <div className="flex items-center justify-between gap-4">
+    <div className="space-y-5 animate-fade-in">
+      <div className="table-panel p-5 md:p-6 animate-slide-up">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-[var(--primary)]">
               Guild Directory
             </p>
-            <h2 className="mt-1 text-2xl font-bold text-white tracking-tight">
+            <h2 className="mt-1 text-xl font-bold text-white tracking-tight md:text-2xl">
               Choose a server to manage
             </h2>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
+            <p className="mt-1 text-[13px] text-[var(--text-muted)] md:text-sm">
               Select a server to access its moderation control room.
             </p>
+            {resolvedSearchParams.refresh === "required" ? (
+              <p className="mt-2 text-[13px] text-amber-200 md:text-sm">
+                Discord guild access needs a fresh sync before the dashboard can use the latest server list.
+              </p>
+            ) : null}
           </div>
-          
-          {missingGuilds.length > 0 && primaryInviteUrl && (
-            <a
-              href={primaryInviteUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="primary-button px-4 py-2 text-sm"
-            >
-              Install Bot
-            </a>
-          )}
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            <RefreshAccessButton />
+            {missingGuilds.length > 0 && primaryInviteUrl ? (
+              <a
+                href={primaryInviteUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="primary-button px-3.5 py-2 text-sm"
+              >
+                Install Bot
+              </a>
+            ) : null}
+          </div>
         </div>
       </div>
 

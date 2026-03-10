@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUserSession, isGlobalAdmin } from "@/lib/auth/guards";
+
+import {
+  dashboardCacheTags,
+  revalidateDashboardTag,
+} from "@/lib/db/cache-tags";
+import { isGlobalAdmin, requireUserSession } from "@/lib/auth/guards";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function PATCH(
@@ -9,7 +14,7 @@ export async function PATCH(
   const { feedbackId } = await params;
   try {
     const user = await requireUserSession();
-    const adminUser = isGlobalAdmin(user as any);
+    const adminUser = isGlobalAdmin(user);
     
     const body = await req.json();
     if (!body.content || typeof body.content !== "string") {
@@ -39,6 +44,7 @@ export async function PATCH(
       .eq("id", feedbackId);
 
     if (error) throw error;
+    revalidateDashboardTag(dashboardCacheTags.feedback());
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to update feedback:", error);
@@ -47,13 +53,13 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  req: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ feedbackId: string }> }
 ) {
   const { feedbackId } = await params;
   try {
     const user = await requireUserSession();
-    const adminUser = isGlobalAdmin(user as any);
+    const adminUser = isGlobalAdmin(user);
 
     const admin = createAdminClient();
     
@@ -78,6 +84,7 @@ export async function DELETE(
       .eq("id", feedbackId);
 
     if (error) throw error;
+    revalidateDashboardTag(dashboardCacheTags.feedback());
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to delete feedback:", error);
