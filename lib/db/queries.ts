@@ -9,6 +9,8 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   AccessibleGuild,
+  AppealRecord,
+  BuiltInCommandToggleMap,
   CustomCommandRecord,
   DashboardAuditLogRecord,
   FeedbackCommentRecord,
@@ -30,6 +32,7 @@ import type {
 const DEFAULT_GUILD_CONFIG: Omit<GuildConfigRecord, "guildId" | "createdAt"> = {
   prefix: "!",
   modLogChannelId: null,
+  appealChannelId: null,
   muteRoleId: null,
   autoroleId: null,
   antispam: false,
@@ -67,6 +70,30 @@ function isMissingGuildCatalogError(error: { code?: string | null; message?: str
   );
 }
 
+function isMissingAppealsViewError(error: { code?: string | null; message?: string | null }) {
+  const code = error.code ?? "";
+  const message = (error.message ?? "").toLowerCase();
+
+  return (
+    code === "42P01" ||
+    code === "PGRST205" ||
+    (message.includes("dashboard_appeals_v") && message.includes("not found")) ||
+    (message.includes("dashboard_appeals_v") && message.includes("does not exist"))
+  );
+}
+
+function isMissingBuiltinToggleViewError(error: { code?: string | null; message?: string | null }) {
+  const code = error.code ?? "";
+  const message = (error.message ?? "").toLowerCase();
+
+  return (
+    code === "42P01" ||
+    code === "PGRST205" ||
+    (message.includes("dashboard_builtin_command_toggles_v") && message.includes("not found")) ||
+    (message.includes("dashboard_builtin_command_toggles_v") && message.includes("does not exist"))
+  );
+}
+
 function mapGuildConfig(row: Record<string, unknown> | null, guildId: string): GuildConfigRecord {
   if (!row) {
     return {
@@ -80,6 +107,7 @@ function mapGuildConfig(row: Record<string, unknown> | null, guildId: string): G
     guildId,
     prefix: (row.prefix as string | null) ?? "!",
     modLogChannelId: (row.mod_log_channel_id as string | null) ?? null,
+    appealChannelId: (row.appeal_channel_id as string | null) ?? null,
     muteRoleId: (row.mute_role_id as string | null) ?? null,
     autoroleId: (row.autorole_id as string | null) ?? null,
     antispam: Boolean(row.antispam),
@@ -170,6 +198,7 @@ function mapModerationCase(row: Record<string, unknown>): ModerationCaseRecord {
 
   return {
     id: String(row.id),
+    caseRef: (row.case_ref as string | null) ?? null,
     guildId: String(row.guild_id),
     userId: String(row.user_id),
     moderatorId: String(row.moderator_id),
@@ -189,6 +218,37 @@ function mapModerationCase(row: Record<string, unknown>): ModerationCaseRecord {
     createdAt: (row.created_at as string | null) ?? null,
     updatedAt: (row.updated_at as string | null) ?? null,
     resolvedAt: (row.resolved_at as string | null) ?? null,
+  };
+}
+
+function mapAppeal(row: Record<string, unknown>): AppealRecord {
+  const status = String(row.status ?? "pending");
+  const appealType = String(row.appeal_type ?? "ban");
+  const source = String(row.source ?? "discord");
+
+  return {
+    id: String(row.id),
+    appealRef: (row.appeal_ref as string | null) ?? null,
+    guildId: String(row.guild_id),
+    caseId: (row.case_id as string | null) ?? null,
+    caseRef: (row.case_ref as string | null) ?? null,
+    userId: String(row.user_id),
+    appealType: appealType === "timeout" ? "timeout" : "ban",
+    status:
+      status === "accepted" || status === "denied" || status === "withdrawn"
+        ? status
+        : "pending",
+    reason: String(row.reason),
+    evidenceLinks: Array.isArray(row.evidence_links)
+      ? row.evidence_links.map((value) => String(value))
+      : [],
+    decisionNote: (row.decision_note as string | null) ?? null,
+    staffNotes: (row.staff_notes as string | null) ?? null,
+    reviewedBy: (row.reviewed_by as string | null) ?? null,
+    reviewedAt: (row.reviewed_at as string | null) ?? null,
+    source: source === "dashboard" ? "dashboard" : "discord",
+    createdAt: (row.created_at as string | null) ?? null,
+    updatedAt: (row.updated_at as string | null) ?? null,
   };
 }
 
@@ -395,11 +455,13 @@ async function readGuildDashboardSummary(guildId: string): Promise<GuildDashboar
     status,
     warningsCountResponse,
     caseCountResponse,
+    pendingAppealCountResponse,
     temporaryRoleCountResponse,
     temporaryBanCountResponse,
     roleLockCountResponse,
     latestCasesResponse,
     latestWarningCasesResponse,
+    latestAppealsResponse,
     latestAuditResponse,
   ] = await Promise.all([
     readGuildConfig(guildId),
@@ -414,6 +476,11 @@ async function readGuildDashboardSummary(guildId: string): Promise<GuildDashboar
       .from("dashboard_moderation_cases_v")
       .select("id", { count: "exact", head: true })
       .eq("guild_id", guildId),
+    admin
+      .from("dashboard_appeals_v")
+      .select("id", { count: "exact", head: true })
+      .eq("guild_id", guildId)
+      .eq("status", "pending"),
     admin
       .from("dashboard_temporary_roles_v")
       .select("id", { count: "exact", head: true })
@@ -441,6 +508,12 @@ async function readGuildDashboardSummary(guildId: string): Promise<GuildDashboar
       .order("created_at", { ascending: false })
       .limit(6),
     admin
+      .from("dashboard_appeals_v")
+      .select("*")
+      .eq("guild_id", guildId)
+      .order("created_at", { ascending: false })
+      .limit(6),
+    admin
       .from("dashboard_audit_logs_v")
       .select("*")
       .eq("guild_id", guildId)
@@ -448,17 +521,29 @@ async function readGuildDashboardSummary(guildId: string): Promise<GuildDashboar
       .limit(6),
   ]);
 
+  const missingAppealsView =
+    (pendingAppealCountResponse.error && isMissingAppealsViewError(pendingAppealCountResponse.error)) ||
+    (latestAppealsResponse.error && isMissingAppealsViewError(latestAppealsResponse.error));
+
   for (const response of [
     warningsCountResponse,
     caseCountResponse,
+    pendingAppealCountResponse,
     temporaryRoleCountResponse,
     temporaryBanCountResponse,
     roleLockCountResponse,
     latestCasesResponse,
     latestWarningCasesResponse,
+    latestAppealsResponse,
     latestAuditResponse,
   ]) {
     if (response.error) {
+      if (
+        missingAppealsView &&
+        (response === pendingAppealCountResponse || response === latestAppealsResponse)
+      ) {
+        continue;
+      }
       throw response.error;
     }
   }
@@ -469,6 +554,7 @@ async function readGuildDashboardSummary(guildId: string): Promise<GuildDashboar
     status,
     warningCount: warningsCountResponse.count ?? 0,
     caseCount: caseCountResponse.count ?? 0,
+    pendingAppealCount: missingAppealsView ? 0 : (pendingAppealCountResponse.count ?? 0),
     temporaryRoleCount: temporaryRoleCountResponse.count ?? 0,
     temporaryBanCount: temporaryBanCountResponse.count ?? 0,
     roleLockCount: roleLockCountResponse.count ?? 0,
@@ -477,6 +563,9 @@ async function readGuildDashboardSummary(guildId: string): Promise<GuildDashboar
     ),
     latestWarningCases: (latestWarningCasesResponse.data ?? []).map((row) =>
       mapModerationCase(row as Record<string, unknown>),
+    ),
+    latestAppeals: (missingAppealsView ? [] : (latestAppealsResponse.data ?? [])).map((row) =>
+      mapAppeal(row as Record<string, unknown>),
     ),
     latestAuditLogs: (latestAuditResponse.data ?? []).map((row) =>
       mapAuditLog(row as Record<string, unknown>),
@@ -511,6 +600,39 @@ async function readGuildLogs(guildId: string, action?: string, status?: string) 
   return {
     moderationCases: (moderationResponse.data ?? []).map((row) =>
       mapModerationCase(row as Record<string, unknown>),
+    ),
+  };
+}
+
+async function readGuildAppeals(guildId: string, status?: string, appealType?: string) {
+  const admin = createAdminClient();
+
+  let appealQuery = admin
+    .from("dashboard_appeals_v")
+    .select("*")
+    .eq("guild_id", guildId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (status) {
+    appealQuery = appealQuery.eq("status", status);
+  }
+
+  if (appealType) {
+    appealQuery = appealQuery.eq("appeal_type", appealType);
+  }
+
+  const appealResponse = await appealQuery;
+  if (appealResponse.error) {
+    if (isMissingAppealsViewError(appealResponse.error)) {
+      return { appeals: [] };
+    }
+    throw appealResponse.error;
+  }
+
+  return {
+    appeals: (appealResponse.data ?? []).map((row) =>
+      mapAppeal(row as Record<string, unknown>),
     ),
   };
 }
@@ -578,6 +700,31 @@ async function readCustomCommands(guildId: string) {
   }
 
   return (data ?? []).map((row) => mapCustomCommand(row as Record<string, unknown>));
+}
+
+async function readBuiltInCommandToggles(guildId: string): Promise<BuiltInCommandToggleMap> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("dashboard_builtin_command_toggles_v")
+    .select("command_name,enabled")
+    .eq("guild_id", guildId);
+
+  if (error) {
+    if (isMissingBuiltinToggleViewError(error)) {
+      return {};
+    }
+    throw error;
+  }
+
+  return (data ?? []).reduce<BuiltInCommandToggleMap>((acc, row) => {
+    const commandName = String(row.command_name ?? "").trim().toLowerCase();
+    if (!commandName) {
+      return acc;
+    }
+
+    acc[commandName] = Boolean(row.enabled);
+    return acc;
+  }, {});
 }
 
 async function readFeedbackRecords(userId: string) {
@@ -696,7 +843,7 @@ export async function getGuildResourceCatalog(guildId: string): Promise<GuildRes
 
 export async function getGuildDashboardSummary(guildId: string): Promise<GuildDashboardSummary> {
   return runCachedQuery(
-    ["guild-summary-v2", guildId],
+    ["guild-summary-v3", guildId],
     [dashboardCacheTags.guildSummary(guildId)],
     dashboardCacheTtls.guildSummary,
     () => readGuildDashboardSummary(guildId),
@@ -709,6 +856,15 @@ export async function getGuildLogs(guildId: string, action?: string, status?: st
     [dashboardCacheTags.guildLogs(guildId)],
     dashboardCacheTtls.guildLogs,
     () => readGuildLogs(guildId, action, status),
+  );
+}
+
+export async function getGuildAppeals(guildId: string, status?: string, appealType?: string) {
+  return runCachedQuery(
+    ["guild-appeals", guildId, status ?? "all", appealType ?? "all"],
+    [dashboardCacheTags.guildAppeals(guildId)],
+    dashboardCacheTtls.guildAppeals,
+    () => readGuildAppeals(guildId, status, appealType),
   );
 }
 
@@ -727,6 +883,17 @@ export async function getCustomCommands(guildId: string): Promise<CustomCommandR
     [dashboardCacheTags.commands(guildId)],
     dashboardCacheTtls.commands,
     () => readCustomCommands(guildId),
+  );
+}
+
+export async function getBuiltInCommandToggles(
+  guildId: string,
+): Promise<BuiltInCommandToggleMap> {
+  return runCachedQuery(
+    ["builtin-command-toggles", guildId],
+    [dashboardCacheTags.commands(guildId)],
+    dashboardCacheTtls.commands,
+    () => readBuiltInCommandToggles(guildId),
   );
 }
 

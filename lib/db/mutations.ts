@@ -51,6 +51,7 @@ const optionalSnowflakeSchema = z
 export const settingsPayloadSchema = z.object({
   guildId: z.string().regex(/^\d+$/),
   modLogChannelId: optionalSnowflakeSchema,
+  appealChannelId: optionalSnowflakeSchema,
   muteRoleId: optionalSnowflakeSchema,
   autoroleId: optionalSnowflakeSchema,
 });
@@ -94,6 +95,7 @@ function pickConfigAuditShape(config: GuildConfigRecord | null) {
 
   return {
     modLogChannelId: config.modLogChannelId,
+    appealChannelId: config.appealChannelId,
     muteRoleId: config.muteRoleId,
     autoroleId: config.autoroleId,
     antispam: config.antispam,
@@ -174,6 +176,7 @@ export async function updateGuildConfig(
   const configUpdate = {
     guild_id: parsed.guildId,
     mod_log_channel_id: parsed.modLogChannelId,
+    appeal_channel_id: parsed.appealChannelId,
     mute_role_id: parsed.muteRoleId,
     autorole_id: parsed.autoroleId,
   };
@@ -195,6 +198,7 @@ export async function updateGuildConfig(
     after: {
       ...pickConfigAuditShape(existingConfig),
       modLogChannelId: parsed.modLogChannelId,
+      appealChannelId: parsed.appealChannelId,
       muteRoleId: parsed.muteRoleId,
       autoroleId: parsed.autoroleId,
     },

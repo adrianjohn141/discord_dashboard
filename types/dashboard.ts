@@ -21,6 +21,7 @@ export interface GuildConfigRecord {
   guildId: string;
   prefix: string | null;
   modLogChannelId: string | null;
+  appealChannelId: string | null;
   muteRoleId: string | null;
   autoroleId: string | null;
   antispam: boolean;
@@ -97,6 +98,7 @@ export interface WarningRecord {
 
 export interface ModerationCaseRecord {
   id: string;
+  caseRef: string | null;
   guildId: string;
   userId: string;
   moderatorId: string;
@@ -111,6 +113,26 @@ export interface ModerationCaseRecord {
   createdAt: string | null;
   updatedAt: string | null;
   resolvedAt: string | null;
+}
+
+export interface AppealRecord {
+  id: string;
+  appealRef: string | null;
+  guildId: string;
+  caseId: string | null;
+  caseRef: string | null;
+  userId: string;
+  appealType: "ban" | "timeout";
+  status: "pending" | "accepted" | "denied" | "withdrawn";
+  reason: string;
+  evidenceLinks: string[];
+  decisionNote: string | null;
+  staffNotes: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  source: "discord" | "dashboard";
+  createdAt: string | null;
+  updatedAt: string | null;
 }
 
 export interface TemporaryRoleRecord {
@@ -157,6 +179,8 @@ export interface BuiltInCommandCategory {
   commands: BuiltInCommand[];
 }
 
+export type BuiltInCommandToggleMap = Record<string, boolean>;
+
 
 export interface RoleLockRecord {
   guildId: string;
@@ -201,11 +225,13 @@ export interface GuildDashboardSummary {
   status: ManagedGuildStatus | null;
   warningCount: number;
   caseCount: number;
+  pendingAppealCount: number;
   temporaryRoleCount: number;
   temporaryBanCount: number;
   roleLockCount: number;
   latestCases: ModerationCaseRecord[];
   latestWarningCases: ModerationCaseRecord[];
+  latestAppeals: AppealRecord[];
   latestAuditLogs: DashboardAuditLogRecord[];
 }
 

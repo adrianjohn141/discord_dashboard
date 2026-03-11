@@ -39,7 +39,7 @@ export default async function GuildSettingsPage({
         </h2>
         <p className="mt-3 max-w-3xl text-sm leading-7 subtle-copy md:text-base">
           Update the persistent configuration rows.
-          These values affect channel logging, mute-role operations, and new-member
+          These values affect moderation and appeal routing, mute-role operations, and new-member
           autorole behavior.
         </p>
       </div>
@@ -52,6 +52,14 @@ export default async function GuildSettingsPage({
             name="modLogChannelId"
             label="Moderation Log Channel"
             defaultValue={config.modLogChannelId}
+            channels={resourceCatalog.channels}
+            fallbackMessage={channelFallbackMessage}
+          />
+
+          <GuildChannelSelect
+            name="appealChannelId"
+            label="Appeal Channel"
+            defaultValue={config.appealChannelId}
             channels={resourceCatalog.channels}
             fallbackMessage={channelFallbackMessage}
           />

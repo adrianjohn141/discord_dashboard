@@ -19,6 +19,13 @@ function formatDate(value: string | null) {
   return dateFormatter.format(new Date(value));
 }
 
+function formatCaseLabel(caseRef: string | null, caseId: string) {
+  if (caseRef) {
+    return caseRef;
+  }
+  return `#${caseId.padStart(6, "0")}`;
+}
+
 export default async function GuildLogsPage({
   params,
   searchParams,
@@ -80,7 +87,7 @@ export default async function GuildLogsPage({
         columns={["Case", "Action", "User", "Moderator", "Status", "When"]}
         rows={logs.moderationCases.map((log) => [
           <div key={`${log.id}-case`} className="space-y-1">
-            <p className="font-mono font-medium text-white">#{log.id.padStart(6, "0")}</p>
+            <p className="font-mono font-medium text-white">{formatCaseLabel(log.caseRef, log.id)}</p>
             <p className="subtle-copy">{log.origin.replaceAll("_", " ")}</p>
           </div>,
           <div key={`${log.id}-action`} className="space-y-1">

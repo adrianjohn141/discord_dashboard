@@ -2,7 +2,7 @@ import { TerminalIcon, BookIcon } from "@/components/dashboard/icons";
 import CustomCommandsManager from "@/components/dashboard/custom-commands-manager";
 import BuiltInCommandsList from "@/components/dashboard/builtin-commands-list";
 import { requireDashboardGuildAccess } from "@/lib/dashboard/request-context";
-import { getCustomCommands } from "@/lib/db/queries";
+import { getBuiltInCommandToggles, getCustomCommands } from "@/lib/db/queries";
 import Link from "next/link";
 
 export default async function GuildCommandsPage({
@@ -11,9 +11,10 @@ export default async function GuildCommandsPage({
   params: Promise<{ guildId: string }>;
 }) {
   const { guildId } = await params;
-  const [, commands] = await Promise.all([
+  const [, commands, builtInCommandToggles] = await Promise.all([
     requireDashboardGuildAccess(guildId),
     getCustomCommands(guildId),
+    getBuiltInCommandToggles(guildId),
   ]);
 
   return (
@@ -58,7 +59,10 @@ export default async function GuildCommandsPage({
       </div>
 
       <div className="pt-6 border-t border-[var(--line)]">
-        <BuiltInCommandsList />
+        <BuiltInCommandsList
+          guildId={guildId}
+          initialToggleMap={builtInCommandToggles}
+        />
       </div>
     </div>
   );

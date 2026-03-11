@@ -14,6 +14,7 @@ export async function updateGuildSettingsAction(formData: FormData) {
     {
       guildId,
       modLogChannelId: String(formData.get("modLogChannelId") ?? "").trim(),
+      appealChannelId: String(formData.get("appealChannelId") ?? "").trim(),
       muteRoleId: String(formData.get("muteRoleId") ?? "").trim(),
       autoroleId: String(formData.get("autoroleId") ?? "").trim(),
     },

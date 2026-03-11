@@ -46,6 +46,7 @@ export const BUILTIN_COMMANDS: BuiltInCommandCategory[] = [
       { name: "hidechannel", description: "Hide a channel from members.", adminOnly: true },
       { name: "showchannel", description: "Show a channel to members.", adminOnly: true },
       { name: "logchannel", description: "Set the moderation log channel.", adminOnly: true },
+      { name: "appealchannel", description: "Set the channel for appeal workflow updates.", adminOnly: true },
     ],
   },
   {
@@ -78,6 +79,17 @@ export const BUILTIN_COMMANDS: BuiltInCommandCategory[] = [
     ],
   },
   {
+    name: "Appeals",
+    id: "Appeals",
+    commands: [
+      { name: "appeal", description: "Submit a ban or timeout appeal." },
+      { name: "appealstatus", description: "Check your appeal status." },
+      { name: "appealqueue", description: "View guild appeals.", adminOnly: true },
+      { name: "appealaccept", description: "Accept an appeal.", adminOnly: true },
+      { name: "appealdeny", description: "Deny an appeal.", adminOnly: true },
+    ],
+  },
+  {
     name: "General",
     id: "BotHelp",
     commands: [
@@ -85,3 +97,9 @@ export const BUILTIN_COMMANDS: BuiltInCommandCategory[] = [
     ],
   },
 ];
+
+export const BUILTIN_COMMAND_NAMES = BUILTIN_COMMANDS.flatMap((category) =>
+  category.commands.map((command) => command.name.toLowerCase()),
+);
+
+export const BUILTIN_COMMAND_NAME_SET = new Set(BUILTIN_COMMAND_NAMES);

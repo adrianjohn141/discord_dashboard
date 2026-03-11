@@ -23,8 +23,18 @@ function formatShortDate(value: string | null) {
   return compactDateFormatter.format(new Date(value));
 }
 
-function formatCaseId(id: string) {
+function formatCaseId(caseRef: string | null, id: string) {
+  if (caseRef) {
+    return caseRef;
+  }
   return `#${id.padStart(6, "0")}`;
+}
+
+function formatAppealId(appealRef: string | null, id: string) {
+  if (appealRef) {
+    return appealRef;
+  }
+  return `A${id.padStart(6, "0")}`;
 }
 
 function formatActionLabel(action: string) {
@@ -76,10 +86,8 @@ export default async function GuildOverviewPage({
     summary.latestCases ??
     ((summary as unknown as { latestModerationLogs?: unknown[] }).latestModerationLogs ?? [])
   ).slice(0, 3);
-  const reviewQueue = (
-    summary.latestWarningCases ??
-    ((summary as unknown as { latestWarnings?: unknown[] }).latestWarnings ?? [])
-  ).slice(0, 3);
+  const reviewQueue = (summary.latestAppeals ?? []).filter((appeal) => appeal.status === "pending").slice(0, 3);
+  const pendingAppealCount = Number(summary.pendingAppealCount ?? 0);
   const activityBars = [
     {
       label: "Warnings",
@@ -133,7 +141,7 @@ export default async function GuildOverviewPage({
       label: "Warnings",
       value: summary.warningCount,
       copy: reviewQueue.length > 0
-        ? `${reviewQueue.length} warning records need moderator review.`
+        ? `${summary.warningCount} warning records are currently open.`
         : "The warning queue is currently clear.",
       icon: WarningIcon,
       iconTone: "text-[var(--warning)]",
@@ -141,7 +149,7 @@ export default async function GuildOverviewPage({
     },
     {
       label: "Review Queue",
-      value: reviewQueue.length,
+      value: pendingAppealCount,
       copy: summary.status?.lastHeartbeatAt
         ? `Runtime heartbeat received ${formatShortDate(summary.status.lastHeartbeatAt)}.`
         : "Runtime heartbeat has not been recorded yet.",
@@ -230,7 +238,7 @@ export default async function GuildOverviewPage({
                           <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--text-faint)]">
                             Case ID
                           </p>
-                          <p className="mt-1 font-mono text-sm text-white">{formatCaseId(log.id)}</p>
+                          <p className="mt-1 font-mono text-sm text-white">{formatCaseId(log.caseRef, log.id)}</p>
                           <p className="mt-2 text-xs text-[var(--text-muted)] uppercase">{log.status}</p>
                         </div>
                         <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${actionTone.badge}`}>
@@ -282,7 +290,7 @@ export default async function GuildOverviewPage({
                     return (
                       <tr key={log.id} className="hover:bg-[var(--bg-surface-elevated)] transition-colors">
                         <td className="px-6 py-4 text-[var(--text-faint)] font-mono">
-                          {formatCaseId(log.id)}
+                          {formatCaseId(log.caseRef, log.id)}
                         </td>
                         <td className="px-6 py-4 font-medium text-[var(--primary)]">
                           {log.userId}
@@ -354,19 +362,19 @@ export default async function GuildOverviewPage({
               {reviewQueue.length === 0 ? (
                 <p className="text-sm text-[var(--text-faint)] text-center py-4">No pending reviews</p>
               ) : (
-                reviewQueue.map((warning) => (
-                  <div key={warning.id} className="p-3 bg-[var(--bg-surface-elevated)] rounded-lg border border-[var(--line)]">
+                reviewQueue.map((appeal) => (
+                  <div key={appeal.id} className="p-3 bg-[var(--bg-surface-elevated)] rounded-lg border border-[var(--line)]">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-bold text-white">Appeal {formatCaseId(warning.id)}</p>
-                      <span className="text-[10px] font-bold text-[var(--text-faint)] uppercase">{warning.status}</span>
+                      <p className="text-xs font-bold text-white">Appeal {formatAppealId(appeal.appealRef, appeal.id)}</p>
+                      <span className="text-[10px] font-bold text-[var(--text-faint)] uppercase">{appeal.status}</span>
                     </div>
-                    <p className="text-xs text-[var(--text-muted)]">User: {warning.userId}</p>
-                    <p className="mt-1 text-xs text-[var(--text-faint)]">{warning.reason}</p>
+                    <p className="text-xs text-[var(--text-muted)]">User: {appeal.userId}</p>
+                    <p className="mt-1 text-xs text-[var(--text-faint)]">{appeal.reason}</p>
                   </div>
                 ))
               )}
               <Link
-                href={`/dashboard/${guildId}/logs`}
+                href={`/dashboard/${guildId}/appeals`}
                 className="secondary-button w-full text-sm"
               >
                 Manage Appeals
