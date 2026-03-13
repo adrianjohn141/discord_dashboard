@@ -13,6 +13,7 @@ import type {
   BuiltInCommandToggleMap,
   CustomCommandRecord,
   DashboardAuditLogRecord,
+  EvidenceSnapshotRecord,
   FeedbackCommentRecord,
   FeedbackRecord,
   GuildChannelOption,
@@ -91,6 +92,19 @@ function isMissingBuiltinToggleViewError(error: { code?: string | null; message?
     code === "PGRST205" ||
     (message.includes("dashboard_builtin_command_toggles_v") && message.includes("not found")) ||
     (message.includes("dashboard_builtin_command_toggles_v") && message.includes("does not exist"))
+  );
+}
+
+function isMissingEvidenceSnapshotsViewError(error: { code?: string | null; message?: string | null }) {
+  const code = error.code ?? "";
+  const message = (error.message ?? "").toLowerCase();
+
+  return (
+    code === "42P01" ||
+    code === "PGRST205" ||
+    (message.includes("dashboard_moderation_evidence_snapshots_v") && message.includes("not found")) ||
+    (message.includes("dashboard_moderation_evidence_snapshots_v") &&
+      message.includes("does not exist"))
   );
 }
 
@@ -218,6 +232,51 @@ function mapModerationCase(row: Record<string, unknown>): ModerationCaseRecord {
     createdAt: (row.created_at as string | null) ?? null,
     updatedAt: (row.updated_at as string | null) ?? null,
     resolvedAt: (row.resolved_at as string | null) ?? null,
+  };
+}
+
+function mapEvidenceSnapshot(
+  row: Record<string, unknown>,
+  caseRefMap: Map<string, string>,
+): EvidenceSnapshotRecord {
+  const source = String(row.source ?? "unknown_delete");
+  const deletedByType = String(row.deleted_by_type ?? "unknown");
+  const caseId = (row.case_id as string | null) ?? null;
+
+  return {
+    id: String(row.id),
+    guildId: String(row.guild_id),
+    caseId,
+    caseRef: caseId ? (caseRefMap.get(caseId) ?? null) : null,
+    source:
+      source === "automod" ||
+      source === "bot_command" ||
+      source === "manual_delete" ||
+      source === "unknown_delete"
+        ? source
+        : "unknown_delete",
+    deletedByUserId: (row.deleted_by_user_id as string | null) ?? null,
+    deletedByType:
+      deletedByType === "automod" ||
+      deletedByType === "staff" ||
+      deletedByType === "system" ||
+      deletedByType === "unknown"
+        ? deletedByType
+        : "unknown",
+    channelId: String(row.channel_id),
+    messageId: String(row.message_id),
+    authorId: String(row.author_id),
+    messageContent: (row.message_content as string | null) ?? null,
+    attachmentsJson: row.attachments_json ?? [],
+    embedsJson: row.embeds_json ?? [],
+    linksJson: row.links_json ?? [],
+    contextBeforeJson: row.context_before_json ?? [],
+    contextAfterJson: row.context_after_json ?? [],
+    authorMetadata: row.author_metadata ?? {},
+    channelMetadata: row.channel_metadata ?? {},
+    messageCreatedAt: (row.message_created_at as string | null) ?? null,
+    messageDeletedAt: (row.message_deleted_at as string | null) ?? null,
+    createdAt: (row.created_at as string | null) ?? null,
   };
 }
 
@@ -604,6 +663,109 @@ async function readGuildLogs(guildId: string, action?: string, status?: string) 
   };
 }
 
+interface GuildEvidenceSnapshotFilters {
+  caseQuery?: string;
+  source?: string;
+}
+
+async function readGuildEvidenceSnapshots(
+  guildId: string,
+  filters?: GuildEvidenceSnapshotFilters,
+) {
+  const admin = createAdminClient();
+  const normalizedCaseQuery = filters?.caseQuery?.trim();
+  const normalizedSource = filters?.source?.trim().toLowerCase();
+  let resolvedCaseId: string | undefined;
+
+  if (normalizedCaseQuery) {
+    if (/^\d+$/.test(normalizedCaseQuery)) {
+      resolvedCaseId = normalizedCaseQuery;
+    } else {
+      const normalizedCaseRef = normalizedCaseQuery.replace(/^#/, "").toUpperCase();
+      const caseResponse = await admin
+        .from("dashboard_moderation_cases_v")
+        .select("id")
+        .eq("guild_id", guildId)
+        .eq("case_ref", normalizedCaseRef)
+        .maybeSingle();
+
+      if (caseResponse.error) {
+        throw caseResponse.error;
+      }
+
+      if (!caseResponse.data?.id) {
+        return { evidenceSnapshots: [] };
+      }
+
+      resolvedCaseId = String(caseResponse.data.id);
+    }
+  }
+
+  let evidenceQuery = admin
+    .from("dashboard_moderation_evidence_snapshots_v")
+    .select("*")
+    .eq("guild_id", guildId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (resolvedCaseId) {
+    evidenceQuery = evidenceQuery.eq("case_id", resolvedCaseId);
+  }
+
+  if (
+    normalizedSource &&
+    (normalizedSource === "automod" ||
+      normalizedSource === "bot_command" ||
+      normalizedSource === "manual_delete" ||
+      normalizedSource === "unknown_delete")
+  ) {
+    evidenceQuery = evidenceQuery.eq("source", normalizedSource);
+  }
+
+  const evidenceResponse = await evidenceQuery;
+  if (evidenceResponse.error) {
+    if (isMissingEvidenceSnapshotsViewError(evidenceResponse.error)) {
+      return { evidenceSnapshots: [] };
+    }
+    throw evidenceResponse.error;
+  }
+
+  const evidenceRows = (evidenceResponse.data ?? []) as Record<string, unknown>[];
+  const caseIds = Array.from(
+    new Set(
+      evidenceRows
+        .map((row) => (row.case_id as string | null) ?? null)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+  const caseRefMap = new Map<string, string>();
+
+  if (caseIds.length > 0) {
+    const caseRefResponse = await admin
+      .from("dashboard_moderation_cases_v")
+      .select("id,case_ref")
+      .eq("guild_id", guildId)
+      .in("id", caseIds);
+
+    if (caseRefResponse.error) {
+      throw caseRefResponse.error;
+    }
+
+    for (const row of caseRefResponse.data ?? []) {
+      const id = String(row.id ?? "");
+      const caseRef = String(row.case_ref ?? "");
+      if (!id || !caseRef) {
+        continue;
+      }
+      caseRefMap.set(id, caseRef);
+    }
+  }
+
+  return {
+    evidenceSnapshots: evidenceRows.map((row) => mapEvidenceSnapshot(row, caseRefMap)),
+  };
+}
+
 async function readGuildAppeals(guildId: string, status?: string, appealType?: string) {
   const admin = createAdminClient();
 
@@ -856,6 +1018,21 @@ export async function getGuildLogs(guildId: string, action?: string, status?: st
     [dashboardCacheTags.guildLogs(guildId)],
     dashboardCacheTtls.guildLogs,
     () => readGuildLogs(guildId, action, status),
+  );
+}
+
+export async function getGuildEvidenceSnapshots(
+  guildId: string,
+  filters?: GuildEvidenceSnapshotFilters,
+) {
+  const normalizedCaseQuery = filters?.caseQuery?.trim() ?? "all";
+  const normalizedSource = filters?.source?.trim().toLowerCase() ?? "all";
+
+  return runCachedQuery(
+    ["guild-evidence", guildId, normalizedCaseQuery, normalizedSource],
+    [dashboardCacheTags.guildEvidence(guildId)],
+    dashboardCacheTtls.guildEvidence,
+    () => readGuildEvidenceSnapshots(guildId, filters),
   );
 }
 

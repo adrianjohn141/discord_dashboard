@@ -13,6 +13,14 @@ This app is tightly coupled to the shared schema used by `discord_bot`, includin
 - Added built-in toggle query support backed by `dashboard_builtin_command_toggles_v`.
 - Added command-name registry exports and toggle map typing for validation and defaults.
 - Added optimistic per-command on/off UI controls in the built-in commands list.
+- Added shared-schema support for moderation evidence snapshots:
+  - new table `moderation_evidence_snapshots`
+  - new dashboard-safe view `dashboard_moderation_evidence_snapshots_v` (`security_invoker=on`)
+- Added Evidence browser UI:
+  - New guild route: `/dashboard/[guildId]/evidence`
+  - Sidebar tab for Evidence navigation
+  - Filter support by case reference (`C...`) or numeric case ID and source
+  - Expandable JSON snapshot details (message content, attachments, embeds, links, context, and metadata)
 
 ## Session Changes (2026-03-11)
 
@@ -45,6 +53,7 @@ This app is tightly coupled to the shared schema used by `discord_bot`, includin
 
 - Guild-scoped moderation overview with case-driven metrics and recent activity.
 - Moderation case logs with filters.
+- Moderation evidence snapshots browser with case/source filters and expandable payload details.
 - Temporary actions view (temporary bans/roles, role locks).
 - Automation controls (anti-spam/link/invite/raid and escalation policy).
 - Guild settings (log channel, appeal channel, mute role, autorole).
@@ -60,6 +69,7 @@ This app is tightly coupled to the shared schema used by `discord_bot`, includin
 - `/dashboard/[guildId]/automation`
 - `/dashboard/[guildId]/settings`
 - `/dashboard/[guildId]/logs`
+- `/dashboard/[guildId]/evidence`
 - `/dashboard/[guildId]/temporary-actions`
 - `/dashboard/[guildId]/commands`
 - `/dashboard/[guildId]/appeals`

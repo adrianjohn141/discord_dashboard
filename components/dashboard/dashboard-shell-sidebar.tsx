@@ -44,6 +44,7 @@ function buildNavigation(activeGuildId: string | null): NavigationItem[] {
     { href: `/dashboard/${activeGuildId}/automation`, label: "AutoMod", icon: AutomationIcon },
     { href: `/dashboard/${activeGuildId}/appeals`, label: "Appeals", icon: LogsIcon },
     { href: `/dashboard/${activeGuildId}/logs`, label: "Logs", icon: LogsIcon },
+    { href: `/dashboard/${activeGuildId}/evidence`, label: "Evidence", icon: LogsIcon },
     { href: `/dashboard/${activeGuildId}/temporary-actions`, label: "Temporary", icon: TemporaryIcon },
   ];
 }

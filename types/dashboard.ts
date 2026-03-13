@@ -115,6 +115,30 @@ export interface ModerationCaseRecord {
   resolvedAt: string | null;
 }
 
+export interface EvidenceSnapshotRecord {
+  id: string;
+  guildId: string;
+  caseId: string | null;
+  caseRef: string | null;
+  source: "automod" | "bot_command" | "manual_delete" | "unknown_delete";
+  deletedByUserId: string | null;
+  deletedByType: "automod" | "staff" | "system" | "unknown";
+  channelId: string;
+  messageId: string;
+  authorId: string;
+  messageContent: string | null;
+  attachmentsJson: unknown;
+  embedsJson: unknown;
+  linksJson: unknown;
+  contextBeforeJson: unknown;
+  contextAfterJson: unknown;
+  authorMetadata: unknown;
+  channelMetadata: unknown;
+  messageCreatedAt: string | null;
+  messageDeletedAt: string | null;
+  createdAt: string | null;
+}
+
 export interface AppealRecord {
   id: string;
   appealRef: string | null;
