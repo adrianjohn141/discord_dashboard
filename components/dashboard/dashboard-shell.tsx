@@ -42,7 +42,7 @@ export function DashboardShell({
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto p-4 lg:min-h-0 lg:p-6">
+          <main className="dashboard-scrollbar flex-1 overflow-y-auto p-4 lg:min-h-0 lg:p-5">
             <div className="mx-auto max-w-[1400px] animate-in fade-in slide-in-from-bottom-4 duration-500">
               {children}
             </div>

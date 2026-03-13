@@ -152,6 +152,54 @@ export function LogsIcon({ className }: IconProps) {
   );
 }
 
+export function AppealIcon({ className }: IconProps) {
+  return (
+    <IconFrame className={className}>
+      <path d="M12 4v14" />
+      <path d="M6 7h12" />
+      <path d="m8 7-3 5a3 3 0 0 0 6 0L8 7Z" />
+      <path d="m16 7-3 5a3 3 0 0 0 6 0l-3-5Z" />
+      <path d="M8 20h8" />
+    </IconFrame>
+  );
+}
+
+export function EvidenceIcon({ className }: IconProps) {
+  return (
+    <IconFrame className={className}>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
+      <path d="M14 3v5h5" />
+      <circle cx="10.5" cy="13.5" r="2.5" />
+      <path d="m12.5 15.5 2 2" />
+    </IconFrame>
+  );
+}
+
+export function ChartIcon({ className }: IconProps) {
+  return (
+    <IconFrame className={className}>
+      <path d="M4 19V6" />
+      <path d="M4 19h16" />
+      <path d="m7 14 3-3 3 2 4-5" />
+      <circle cx="7" cy="14" r="1" fill="currentColor" stroke="none" />
+      <circle cx="10" cy="11" r="1" fill="currentColor" stroke="none" />
+      <circle cx="13" cy="13" r="1" fill="currentColor" stroke="none" />
+      <circle cx="17" cy="8" r="1" fill="currentColor" stroke="none" />
+    </IconFrame>
+  );
+}
+
+export function QueueIcon({ className }: IconProps) {
+  return (
+    <IconFrame className={className}>
+      <path d="M4 7h16" />
+      <path d="M4 12h10" />
+      <path d="M4 17h7" />
+      <path d="m15 14 4 4-4 4" />
+    </IconFrame>
+  );
+}
+
 export function TemporaryIcon({ className }: IconProps) {
   return (
     <IconFrame className={className}>
