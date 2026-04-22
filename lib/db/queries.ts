@@ -457,6 +457,27 @@ async function readManagedGuildStatus(guildId: string) {
   return mapManagedGuild((data as Record<string, unknown> | null) ?? null);
 }
 
+async function readGlobalBotStatus(): Promise<{ lastHeartbeatAt: string | null; isOnline: boolean }> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("dashboard_bot_global_status_v").select("*").eq("id", 1).maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  const lastHeartbeatAt = (data?.last_heartbeat_at as string | null) ?? null;
+  let isOnline = false;
+
+  if (lastHeartbeatAt) {
+    const heartbeatDate = new Date(lastHeartbeatAt);
+    const now = new Date();
+    // Consider online if heartbeat was within last 3 minutes (180s)
+    isOnline = now.getTime() - heartbeatDate.getTime() < 180_000;
+  }
+
+  return { lastHeartbeatAt, isOnline };
+}
+
 async function readGuildResourceCatalog(guildId: string): Promise<GuildResourceCatalog> {
   const admin = createAdminClient();
 
@@ -991,6 +1012,15 @@ export async function getManagedGuildStatus(guildId: string) {
     [dashboardCacheTags.guildSummary(guildId)],
     dashboardCacheTtls.guildSummary,
     () => readManagedGuildStatus(guildId),
+  );
+}
+
+export async function getGlobalBotStatus() {
+  return runCachedQuery(
+    ["global-bot-status"],
+    [dashboardCacheTags.globalBotStatus()],
+    dashboardCacheTtls.globalBotStatus,
+    () => readGlobalBotStatus(),
   );
 }
 

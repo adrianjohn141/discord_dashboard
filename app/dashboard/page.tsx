@@ -2,14 +2,17 @@ import { GuildCard } from "@/components/guild/guild-card";
 import { RefreshAccessButton } from "@/components/dashboard/refresh-access-button";
 import { getDashboardRequestContext } from "@/lib/dashboard/request-context";
 import { getBotInviteUrl } from "@/lib/discord/invite";
+import { getGlobalBotStatus } from "@/lib/db/queries";
+import { GlobalBotStatus } from "@/components/dashboard/global-bot-status";
 
 export default async function DashboardIndexPage({
   searchParams,
 }: {
   searchParams: Promise<{ refresh?: string }>;
 }) {
-  const [{ guilds }, resolvedSearchParams] = await Promise.all([
+  const [{ guilds }, globalStatus, resolvedSearchParams] = await Promise.all([
     getDashboardRequestContext(),
+    getGlobalBotStatus(),
     searchParams,
   ]);
 
@@ -41,6 +44,7 @@ export default async function DashboardIndexPage({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            <GlobalBotStatus isOnline={globalStatus.isOnline} lastHeartbeatAt={globalStatus.lastHeartbeatAt} />
             <RefreshAccessButton />
             {missingGuilds.length > 0 && primaryInviteUrl ? (
               <a

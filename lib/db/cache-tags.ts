@@ -13,6 +13,7 @@ export const dashboardCacheTtls = {
   guildTempActions: 15,
   feedback: 15,
   commands: 30,
+  globalBotStatus: 15,
 } as const;
 
 export const dashboardCacheTags = {
@@ -26,6 +27,7 @@ export const dashboardCacheTags = {
   guildTempActions: (guildId: string) => `guild-temp-actions:${guildId}`,
   feedback: () => "feedback",
   commands: (guildId: string) => `commands:${guildId}`,
+  globalBotStatus: () => "global-bot-status",
 } as const;
 
 const immediateExpiration = { expire: 0 } as const;
