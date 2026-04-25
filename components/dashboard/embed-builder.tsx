@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
+import { create } from "zustand";
+import { immer } from "zustand/middleware/immer";
 import { 
   PlusIcon, 
   TrashIcon, 
   XIcon, 
-  ChevronDownIcon, 
-  ChevronUpIcon 
 } from "./icons";
 
 export interface EmbedField {
@@ -38,6 +38,106 @@ export interface EmbedData {
   };
   fields?: EmbedField[];
 }
+
+interface EmbedStoreState {
+  embed: EmbedData;
+  hexColor: string;
+  actions: {
+    setInitialData: (data?: string) => void;
+    setHexColor: (color: string) => void;
+    updateEmbed: (key: keyof EmbedData, value: any) => void;
+    updateAuthor: (key: keyof NonNullable<EmbedData["author"]>, value: string) => void;
+    updateImage: (url: string) => void;
+    updateThumbnail: (url: string) => void;
+    updateFooter: (key: keyof NonNullable<EmbedData["footer"]>, value: string) => void;
+    addField: () => void;
+    updateField: (index: number, key: keyof EmbedField, value: string | boolean) => void;
+    removeField: (index: number) => void;
+  };
+}
+
+const useEmbedStore = create<EmbedStoreState>()(
+  immer((set) => ({
+    embed: { fields: [] },
+    hexColor: "#5865F2",
+    actions: {
+      setInitialData: (initialData) => {
+        set((state) => {
+          try {
+            state.embed = initialData ? JSON.parse(initialData) : { fields: [] };
+            if (state.embed.color) {
+              state.hexColor = "#" + state.embed.color.toString(16).padStart(6, "0");
+            }
+          } catch {
+            state.embed = { fields: [] };
+          }
+        });
+      },
+      setHexColor: (hex) => {
+        set((state) => {
+          state.hexColor = hex;
+          const colorInt = parseInt(hex.replace("#", ""), 16);
+          if (!isNaN(colorInt)) {
+            state.embed.color = colorInt;
+          }
+        });
+      },
+      updateEmbed: (key, value) => {
+        set((state) => {
+          (state.embed as any)[key] = value;
+        });
+      },
+      updateAuthor: (key, value) => {
+        set((state) => {
+          if (!state.embed.author) {
+            state.embed.author = { name: "" };
+          }
+          (state.embed.author as any)[key] = value;
+        });
+      },
+      updateImage: (url) => {
+        set((state) => {
+          state.embed.image = { url };
+        });
+      },
+      updateThumbnail: (url) => {
+        set((state) => {
+          state.embed.thumbnail = { url };
+        });
+      },
+      updateFooter: (key, value) => {
+        set((state) => {
+          if (!state.embed.footer) {
+            state.embed.footer = { text: "" };
+          }
+          (state.embed.footer as any)[key] = value;
+        });
+      },
+      addField: () => {
+        set((state) => {
+          if (!state.embed.fields) {
+            state.embed.fields = [];
+          }
+          state.embed.fields.push({ name: "", value: "", inline: false });
+        });
+      },
+      updateField: (index, key, value) => {
+        set((state) => {
+          if (state.embed.fields && state.embed.fields[index]) {
+            (state.embed.fields[index] as any)[key] = value;
+          }
+        });
+      },
+      removeField: (index) => {
+        set((state) => {
+          if (state.embed.fields) {
+            state.embed.fields.splice(index, 1);
+          }
+        });
+      },
+    },
+  }))
+);
 
 export function EmbedPreview({ embed, hexColor }: { embed: EmbedData, hexColor: string }) {
   return (
@@ -124,49 +224,13 @@ interface EmbedBuilderProps {
 }
 
 export default function EmbedBuilder({ initialData, onSave, onClose }: EmbedBuilderProps) {
-  const [embed, setEmbed] = useState<EmbedData>(() => {
-    try {
-      return initialData ? JSON.parse(initialData) : { fields: [] };
-    } catch {
-      return { fields: [] };
-    }
-  });
-
-  const [hexColor, setHexColor] = useState(() => {
-    if (embed.color) {
-      return "#" + embed.color.toString(16).padStart(6, "0");
-    }
-    return "#5865F2"; // Discord blurple
-  });
+  const embed = useEmbedStore((state) => state.embed);
+  const hexColor = useEmbedStore((state) => state.hexColor);
+  const actions = useEmbedStore((state) => state.actions);
 
   useEffect(() => {
-    const colorInt = parseInt(hexColor.replace("#", ""), 16);
-    if (!isNaN(colorInt)) {
-      setEmbed(prev => ({ ...prev, color: colorInt }));
-    }
-  }, [hexColor]);
-
-  const addField = () => {
-    setEmbed(prev => ({
-      ...prev,
-      fields: [...(prev.fields || []), { name: "", value: "", inline: false }]
-    }));
-  };
-
-  const updateField = (index: number, key: keyof EmbedField, value: string | boolean) => {
-    setEmbed(prev => {
-      const newFields = [...(prev.fields || [])];
-      newFields[index] = { ...newFields[index], [key]: value };
-      return { ...prev, fields: newFields };
-    });
-  };
-
-  const removeField = (index: number) => {
-    setEmbed(prev => ({
-      ...prev,
-      fields: (prev.fields || []).filter((_, i) => i !== index)
-    }));
-  };
+    actions.setInitialData(initialData);
+  }, [initialData, actions]);
 
   const handleSave = () => {
     onSave(JSON.stringify(embed, null, 2));
@@ -193,13 +257,13 @@ export default function EmbedBuilder({ initialData, onSave, onClose }: EmbedBuil
                   <input 
                     type="color" 
                     value={hexColor}
-                    onChange={(e) => setHexColor(e.target.value)}
+                    onChange={(e) => actions.setHexColor(e.target.value)}
                     className="h-10 w-12 cursor-pointer rounded-lg border border-[var(--line)] bg-[var(--bg-input)] p-1"
                   />
                   <input 
                     type="text"
                     value={hexColor}
-                    onChange={(e) => setHexColor(e.target.value)}
+                    onChange={(e) => actions.setHexColor(e.target.value)}
                     className="flex-1 rounded-lg border border-[var(--line)] bg-[var(--bg-input)] px-3 py-2 text-sm text-white"
                   />
                 </div>
@@ -214,7 +278,7 @@ export default function EmbedBuilder({ initialData, onSave, onClose }: EmbedBuil
                 <input 
                   type="text"
                   value={embed.title || ""}
-                  onChange={(e) => setEmbed(prev => ({ ...prev, title: e.target.value }))}
+                  onChange={(e) => actions.updateEmbed("title", e.target.value)}
                   className="w-full rounded-lg border border-[var(--line)] bg-[var(--bg-input)] px-3 py-2 text-sm text-white"
                   placeholder="Enter Title"
                 />
@@ -226,7 +290,7 @@ export default function EmbedBuilder({ initialData, onSave, onClose }: EmbedBuil
                 <input 
                   type="text"
                   value={embed.url || ""}
-                  onChange={(e) => setEmbed(prev => ({ ...prev, url: e.target.value }))}
+                  onChange={(e) => actions.updateEmbed("url", e.target.value)}
                   className="w-full rounded-lg border border-[var(--line)] bg-[var(--bg-input)] px-3 py-2 text-sm text-white"
                   placeholder="Enter URL"
                 />
@@ -240,7 +304,7 @@ export default function EmbedBuilder({ initialData, onSave, onClose }: EmbedBuil
               <textarea 
                 rows={4}
                 value={embed.description || ""}
-                onChange={(e) => setEmbed(prev => ({ ...prev, description: e.target.value }))}
+                onChange={(e) => actions.updateEmbed("description", e.target.value)}
                 className="w-full resize-none rounded-lg border border-[var(--line)] bg-[var(--bg-input)] px-3 py-2 text-sm text-white"
                 placeholder="Enter Description"
               />
@@ -253,7 +317,7 @@ export default function EmbedBuilder({ initialData, onSave, onClose }: EmbedBuil
                 <input 
                   type="text"
                   value={embed.author?.name || ""}
-                  onChange={(e) => setEmbed(prev => ({ ...prev, author: { ...prev.author, name: e.target.value } }))}
+                  onChange={(e) => actions.updateAuthor("name", e.target.value)}
                   className="w-full rounded-lg border border-[var(--line)] bg-[var(--bg-input)] px-3 py-2 text-sm text-white"
                   placeholder="Author Name"
                 />
@@ -261,14 +325,14 @@ export default function EmbedBuilder({ initialData, onSave, onClose }: EmbedBuil
                   <input 
                     type="text"
                     value={embed.author?.icon_url || ""}
-                    onChange={(e) => setEmbed(prev => ({ ...prev, author: { ...prev.author || { name: "" }, icon_url: e.target.value } }))}
+                    onChange={(e) => actions.updateAuthor("icon_url", e.target.value)}
                     className="w-full rounded-lg border border-[var(--line)] bg-[var(--bg-input)] px-3 py-2 text-sm text-white"
                     placeholder="Author Icon URL"
                   />
                   <input 
                     type="text"
                     value={embed.author?.url || ""}
-                    onChange={(e) => setEmbed(prev => ({ ...prev, author: { ...prev.author || { name: "" }, url: e.target.value } }))}
+                    onChange={(e) => actions.updateAuthor("url", e.target.value)}
                     className="w-full rounded-lg border border-[var(--line)] bg-[var(--bg-input)] px-3 py-2 text-sm text-white"
                     placeholder="Author Link URL"
                   />
@@ -283,7 +347,7 @@ export default function EmbedBuilder({ initialData, onSave, onClose }: EmbedBuil
                 <input 
                   type="text"
                   value={embed.thumbnail?.url || ""}
-                  onChange={(e) => setEmbed(prev => ({ ...prev, thumbnail: { url: e.target.value } }))}
+                  onChange={(e) => actions.updateThumbnail(e.target.value)}
                   className="w-full rounded-lg border border-[var(--line)] bg-[var(--bg-input)] px-3 py-2 text-sm text-white"
                   placeholder="Thumbnail URL"
                 />
@@ -293,7 +357,7 @@ export default function EmbedBuilder({ initialData, onSave, onClose }: EmbedBuil
                 <input 
                   type="text"
                   value={embed.image?.url || ""}
-                  onChange={(e) => setEmbed(prev => ({ ...prev, image: { url: e.target.value } }))}
+                  onChange={(e) => actions.updateImage(e.target.value)}
                   className="w-full rounded-lg border border-[var(--line)] bg-[var(--bg-input)] px-3 py-2 text-sm text-white"
                   placeholder="Image URL"
                 />
@@ -306,7 +370,7 @@ export default function EmbedBuilder({ initialData, onSave, onClose }: EmbedBuil
                 <h4 className="text-xs font-bold uppercase tracking-widest text-white/50">Fields</h4>
                 <button 
                   type="button" 
-                  onClick={addField}
+                  onClick={() => actions.addField()}
                   className="flex items-center gap-1 text-[10px] font-bold uppercase text-[var(--primary)] hover:underline"
                 >
                   <PlusIcon className="h-3 w-3" />
@@ -319,7 +383,7 @@ export default function EmbedBuilder({ initialData, onSave, onClose }: EmbedBuil
                   <div key={idx} className="relative space-y-2 rounded-lg bg-[var(--bg-input)] p-3">
                     <button 
                       type="button"
-                      onClick={() => removeField(idx)}
+                      onClick={() => actions.removeField(idx)}
                       className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white shadow-lg transition-transform hover:scale-110"
                     >
                       <XIcon className="h-3 w-3" />
@@ -328,7 +392,7 @@ export default function EmbedBuilder({ initialData, onSave, onClose }: EmbedBuil
                       <input 
                         type="text"
                         value={field.name}
-                        onChange={(e) => updateField(idx, "name", e.target.value)}
+                        onChange={(e) => actions.updateField(idx, "name", e.target.value)}
                         className="flex-1 rounded border border-[var(--line)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-white"
                         placeholder="Field Name"
                       />
@@ -337,14 +401,14 @@ export default function EmbedBuilder({ initialData, onSave, onClose }: EmbedBuil
                         <input 
                           type="checkbox"
                           checked={field.inline}
-                          onChange={(e) => updateField(idx, "inline", e.target.checked)}
+                          onChange={(e) => actions.updateField(idx, "inline", e.target.checked)}
                         />
                       </label>
                     </div>
                     <textarea 
                       rows={2}
                       value={field.value}
-                      onChange={(e) => updateField(idx, "value", e.target.value)}
+                      onChange={(e) => actions.updateField(idx, "value", e.target.value)}
                       className="w-full resize-none rounded border border-[var(--line)] bg-[var(--bg-surface)] px-2 py-1 text-xs text-white"
                       placeholder="Field Value"
                     />
@@ -363,14 +427,14 @@ export default function EmbedBuilder({ initialData, onSave, onClose }: EmbedBuil
                 <input 
                   type="text"
                   value={embed.footer?.text || ""}
-                  onChange={(e) => setEmbed(prev => ({ ...prev, footer: { ...prev.footer, text: e.target.value } }))}
+                  onChange={(e) => actions.updateFooter("text", e.target.value)}
                   className="w-full rounded-lg border border-[var(--line)] bg-[var(--bg-input)] px-3 py-2 text-sm text-white"
                   placeholder="Footer Text"
                 />
                 <input 
                   type="text"
                   value={embed.footer?.icon_url || ""}
-                  onChange={(e) => setEmbed(prev => ({ ...prev, footer: { text: prev.footer?.text || "", icon_url: e.target.value } }))}
+                  onChange={(e) => actions.updateFooter("icon_url", e.target.value)}
                   className="w-full rounded-lg border border-[var(--line)] bg-[var(--bg-input)] px-3 py-2 text-sm text-white"
                   placeholder="Footer Icon URL"
                 />
