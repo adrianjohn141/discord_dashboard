@@ -8,6 +8,7 @@ import {
   revalidateDashboardTags,
 } from "@/lib/db/cache-tags";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import type { GuildConfigRecord } from "@/types/dashboard";
 
 const antiAbuseDurationPattern = /^\d+[smhd]$/;
@@ -263,4 +264,33 @@ export async function updateAntiAbusePolicy(
     dashboardCacheTags.guildConfig(parsed.guildId),
     dashboardCacheTags.guildSummary(parsed.guildId),
   ]);
+}
+
+export async function enqueueAction(input: {
+  guildId: string;
+  moderatorId: string; // The UUID from auth.users.id
+  targetUserId?: string | null;
+  actionType: string;
+  actionPayload: Record<string, unknown>;
+}) {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("action_queue")
+    .insert({
+      guild_id: input.guildId,
+      moderator_id: input.moderatorId,
+      target_user_id: input.targetUserId ?? null,
+      action_type: input.actionType,
+      action_payload: input.actionPayload,
+      status: "pending",
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return { taskId: String(data.id) };
 }

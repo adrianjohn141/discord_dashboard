@@ -6,6 +6,7 @@ import {
   revalidateDashboardTags,
 } from "@/lib/db/cache-tags";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { enqueueAction } from "@/lib/db/mutations";
 
 const VALID_DECISIONS = new Set(["accepted", "denied"]);
 const DISCORD_API_BASE = "https://discord.com/api/v10";
@@ -23,11 +24,6 @@ function getBotToken() {
     process.env.DISCORD_BOT_TOKEN?.trim() ||
     process.env.DISCORD_TOKEN?.trim();
   return token || null;
-}
-
-function buildAuditReason(note: string) {
-  const raw = `Appeal accepted via dashboard: ${note}`.slice(0, 512);
-  return encodeURIComponent(raw);
 }
 
 function parseSnowflake(value: unknown, fieldName: string) {
@@ -107,75 +103,6 @@ async function sendAppealAcceptedDm(params: {
   }
 }
 
-async function applyDiscordReversal(params: {
-  guildId: string;
-  userId: string;
-  appealType: string;
-  decisionNote: string;
-}) {
-  const normalizedType = (params.appealType || "").trim().toLowerCase();
-  if (normalizedType !== "ban" && normalizedType !== "timeout") {
-    return;
-  }
-
-  if (!/^\d+$/.test(params.userId)) {
-    throw new Error("Appeal reversal failed: invalid target user ID.");
-  }
-
-  const botToken = getBotToken();
-  if (!botToken) {
-    throw new Error("Accepted appeal blocked: configure DISCORD_BOT_TOKEN (or DISCORD_TOKEN) on dashboard server.");
-  }
-
-  const reason = buildAuditReason(params.decisionNote);
-
-  if (normalizedType === "ban") {
-    const response = await fetch(
-      `${DISCORD_API_BASE}/guilds/${params.guildId}/bans/${params.userId}`,
-      {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bot ${botToken}`,
-          "X-Audit-Log-Reason": reason,
-        },
-      },
-    );
-
-    if (response.status === 204) {
-      return;
-    }
-
-    const body = await response.text();
-    throw new Error(
-      `Accepted appeal blocked: failed to unban user via Discord API (status ${response.status}) ${body}`,
-    );
-  }
-
-  const response = await fetch(
-    `${DISCORD_API_BASE}/guilds/${params.guildId}/members/${params.userId}`,
-    {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bot ${botToken}`,
-        "Content-Type": "application/json",
-        "X-Audit-Log-Reason": reason,
-      },
-      body: JSON.stringify({
-        communication_disabled_until: null,
-      }),
-    },
-  );
-
-  if (response.status === 200 || response.status === 204) {
-    return;
-  }
-
-  const body = await response.text();
-  throw new Error(
-    `Accepted appeal blocked: failed to remove timeout via Discord API (status ${response.status}) ${body}`,
-  );
-}
-
 export async function decideAppealAction(formData: FormData) {
   const guildId = String(formData.get("guildId") ?? "");
   const appealRef = String(formData.get("appealRef") ?? "").trim().toUpperCase();
@@ -230,12 +157,18 @@ export async function decideAppealAction(formData: FormData) {
   const caseRef = appeal.case_ref ? String(appeal.case_ref) : null;
 
   if (status === "accepted") {
-    await applyDiscordReversal({
-      guildId,
-      userId: targetUserId,
-      appealType,
-      decisionNote,
-    });
+    // Enqueue reversal action instead of performing it synchronously
+    if (appealType === "ban" || appealType === "timeout") {
+      await enqueueAction({
+        guildId,
+        moderatorId: user.id,
+        targetUserId,
+        actionType: appealType === "ban" ? "unban" : "remove_timeout",
+        actionPayload: {
+          reason: `Appeal ${normalizedAppealRef} accepted: ${decisionNote}`,
+        },
+      });
+    }
   }
 
   const { error: updateError } = await admin
