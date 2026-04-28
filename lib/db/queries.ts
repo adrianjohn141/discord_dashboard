@@ -1,12 +1,10 @@
 import "server-only";
 
-import { unstable_cache } from "next/cache";
-
 import {
   dashboardCacheTags,
   dashboardCacheTtls,
 } from "@/lib/db/cache-tags";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import type {
   AccessibleGuild,
   AppealRecord,
@@ -54,7 +52,7 @@ function runCachedQuery<T>(
   revalidate: number,
   loader: () => Promise<T>,
 ) {
-  return unstable_cache(loader, keyParts, { tags, revalidate })();
+  return loader();
 }
 
 function isMissingGuildCatalogError(error: { code?: string | null; message?: string | null }) {
@@ -382,9 +380,9 @@ function mapFeedbackComment(row: Record<string, unknown>): FeedbackCommentRecord
 }
 
 async function readAccessibleGuilds(userId: string) {
-  const admin = createAdminClient();
+  const supabase = await createClient();
 
-  const { data: accessRows, error: accessError } = await admin
+  const { data: accessRows, error: accessError } = await supabase
     .from("dashboard_guild_access_v")
     .select("*")
     .eq("user_id", userId)
@@ -395,7 +393,7 @@ async function readAccessibleGuilds(userId: string) {
     throw accessError;
   }
 
-  const { data: managedGuildRows, error: managedGuildError } = await admin
+  const { data: managedGuildRows, error: managedGuildError } = await supabase
     .from("dashboard_managed_guilds_v")
     .select("*");
 
@@ -428,8 +426,8 @@ async function readAccessibleGuilds(userId: string) {
 }
 
 async function readGuildConfig(guildId: string) {
-  const admin = createAdminClient();
-  const { data, error } = await admin
+  const supabase = await createClient();
+  const { data, error } = await supabase
     .from("dashboard_guild_config_v")
     .select("*")
     .eq("guild_id", guildId)
@@ -443,8 +441,8 @@ async function readGuildConfig(guildId: string) {
 }
 
 async function readManagedGuildStatus(guildId: string) {
-  const admin = createAdminClient();
-  const { data, error } = await admin
+  const supabase = await createClient();
+  const { data, error } = await supabase
     .from("dashboard_managed_guilds_v")
     .select("*")
     .eq("guild_id", guildId)
@@ -458,8 +456,8 @@ async function readManagedGuildStatus(guildId: string) {
 }
 
 async function readGlobalBotStatus(): Promise<{ lastHeartbeatAt: string | null; isOnline: boolean }> {
-  const admin = createAdminClient();
-  const { data, error } = await admin.from("dashboard_bot_global_status_v").select("*").eq("id", 1).maybeSingle();
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("dashboard_bot_global_status_v").select("*").eq("id", 1).maybeSingle();
 
   if (error) {
     throw error;
@@ -479,16 +477,16 @@ async function readGlobalBotStatus(): Promise<{ lastHeartbeatAt: string | null; 
 }
 
 async function readGuildResourceCatalog(guildId: string): Promise<GuildResourceCatalog> {
-  const admin = createAdminClient();
+  const supabase = await createClient();
 
   const [channelsResponse, rolesResponse] = await Promise.all([
-    admin
+    supabase
       .from("dashboard_guild_channels_v")
       .select("*")
       .eq("guild_id", guildId)
       .order("position", { ascending: true })
       .order("name", { ascending: true }),
-    admin
+    supabase
       .from("dashboard_guild_roles_v")
       .select("*")
       .eq("guild_id", guildId)
@@ -528,7 +526,7 @@ async function readGuildResourceCatalog(guildId: string): Promise<GuildResourceC
 }
 
 async function readGuildDashboardSummary(guildId: string): Promise<GuildDashboardSummary> {
-  const admin = createAdminClient();
+  const supabase = await createClient();
 
   const [
     config,
@@ -546,40 +544,40 @@ async function readGuildDashboardSummary(guildId: string): Promise<GuildDashboar
   ] = await Promise.all([
     readGuildConfig(guildId),
     readManagedGuildStatus(guildId),
-    admin
+    supabase
       .from("dashboard_moderation_cases_v")
       .select("id", { count: "exact", head: true })
       .eq("guild_id", guildId)
       .eq("action", "warn")
       .eq("status", "open"),
-    admin
+    supabase
       .from("dashboard_moderation_cases_v")
       .select("id", { count: "exact", head: true })
       .eq("guild_id", guildId),
-    admin
+    supabase
       .from("dashboard_appeals_v")
       .select("id", { count: "exact", head: true })
       .eq("guild_id", guildId)
       .eq("status", "pending"),
-    admin
+    supabase
       .from("dashboard_temporary_roles_v")
       .select("id", { count: "exact", head: true })
       .eq("guild_id", guildId),
-    admin
+    supabase
       .from("dashboard_temporary_bans_v")
       .select("id", { count: "exact", head: true })
       .eq("guild_id", guildId),
-    admin
+    supabase
       .from("dashboard_role_locks_v")
       .select("user_id", { count: "exact", head: true })
       .eq("guild_id", guildId),
-    admin
+    supabase
       .from("dashboard_moderation_cases_v")
       .select("*")
       .eq("guild_id", guildId)
       .order("created_at", { ascending: false })
       .limit(6),
-    admin
+    supabase
       .from("dashboard_moderation_cases_v")
       .select("*")
       .eq("guild_id", guildId)
@@ -587,13 +585,13 @@ async function readGuildDashboardSummary(guildId: string): Promise<GuildDashboar
       .eq("status", "open")
       .order("created_at", { ascending: false })
       .limit(6),
-    admin
+    supabase
       .from("dashboard_appeals_v")
       .select("*")
       .eq("guild_id", guildId)
       .order("created_at", { ascending: false })
       .limit(6),
-    admin
+    supabase
       .from("dashboard_audit_logs_v")
       .select("*")
       .eq("guild_id", guildId)
@@ -654,9 +652,9 @@ async function readGuildDashboardSummary(guildId: string): Promise<GuildDashboar
 }
 
 async function readGuildLogs(guildId: string, action?: string, status?: string) {
-  const admin = createAdminClient();
+  const supabase = await createClient();
 
-  let moderationQuery = admin
+  let moderationQuery = supabase
     .from("dashboard_moderation_cases_v")
     .select("*")
     .eq("guild_id", guildId)
@@ -693,7 +691,7 @@ async function readGuildEvidenceSnapshots(
   guildId: string,
   filters?: GuildEvidenceSnapshotFilters,
 ) {
-  const admin = createAdminClient();
+  const supabase = await createClient();
   const normalizedCaseQuery = filters?.caseQuery?.trim();
   const normalizedSource = filters?.source?.trim().toLowerCase();
   let resolvedCaseId: string | undefined;
@@ -703,7 +701,7 @@ async function readGuildEvidenceSnapshots(
       resolvedCaseId = normalizedCaseQuery;
     } else {
       const normalizedCaseRef = normalizedCaseQuery.replace(/^#/, "").toUpperCase();
-      const caseResponse = await admin
+      const caseResponse = await supabase
         .from("dashboard_moderation_cases_v")
         .select("id")
         .eq("guild_id", guildId)
@@ -722,7 +720,7 @@ async function readGuildEvidenceSnapshots(
     }
   }
 
-  let evidenceQuery = admin
+  let evidenceQuery = supabase
     .from("dashboard_moderation_evidence_snapshots_v")
     .select("*")
     .eq("guild_id", guildId)
@@ -762,7 +760,7 @@ async function readGuildEvidenceSnapshots(
   const caseRefMap = new Map<string, string>();
 
   if (caseIds.length > 0) {
-    const caseRefResponse = await admin
+    const caseRefResponse = await supabase
       .from("dashboard_moderation_cases_v")
       .select("id,case_ref")
       .eq("guild_id", guildId)
@@ -788,9 +786,9 @@ async function readGuildEvidenceSnapshots(
 }
 
 async function readGuildAppeals(guildId: string, status?: string, appealType?: string) {
-  const admin = createAdminClient();
+  const supabase = await createClient();
 
-  let appealQuery = admin
+  let appealQuery = supabase
     .from("dashboard_appeals_v")
     .select("*")
     .eq("guild_id", guildId)
@@ -821,23 +819,23 @@ async function readGuildAppeals(guildId: string, status?: string, appealType?: s
 }
 
 async function readGuildTemporaryActions(guildId: string) {
-  const admin = createAdminClient();
+  const supabase = await createClient();
 
   const [temporaryRolesResponse, temporaryBansResponse, roleLocksResponse] =
     await Promise.all([
-      admin
+      supabase
         .from("dashboard_temporary_roles_v")
         .select("*")
         .eq("guild_id", guildId)
         .order("expires_at", { ascending: true })
         .limit(50),
-      admin
+      supabase
         .from("dashboard_temporary_bans_v")
         .select("*")
         .eq("guild_id", guildId)
         .order("expires_at", { ascending: true })
         .limit(50),
-      admin
+      supabase
         .from("dashboard_role_locks_v")
         .select("*")
         .eq("guild_id", guildId)
@@ -871,8 +869,8 @@ async function readGuildTemporaryActions(guildId: string) {
 }
 
 async function readCustomCommands(guildId: string) {
-  const admin = createAdminClient();
-  const { data, error } = await admin
+  const supabase = await createClient();
+  const { data, error } = await supabase
     .from("dashboard_custom_commands_v")
     .select("*")
     .eq("guild_id", guildId)
@@ -886,8 +884,8 @@ async function readCustomCommands(guildId: string) {
 }
 
 async function readBuiltInCommandToggles(guildId: string): Promise<BuiltInCommandToggleMap> {
-  const admin = createAdminClient();
-  const { data, error } = await admin
+  const supabase = await createClient();
+  const { data, error } = await supabase
     .from("dashboard_builtin_command_toggles_v")
     .select("command_name,enabled")
     .eq("guild_id", guildId);
@@ -911,13 +909,13 @@ async function readBuiltInCommandToggles(guildId: string): Promise<BuiltInComman
 }
 
 async function readFeedbackRecords(userId: string) {
-  const admin = createAdminClient();
+  const supabase = await createClient();
   const [feedbackResponse, userStarsResponse, allStarsResponse, commentsResponse] =
     await Promise.all([
-      admin.from("feedback").select("*").order("created_at", { ascending: false }),
-      admin.from("feedback_stars").select("feedback_id").eq("user_id", userId),
-      admin.from("feedback_stars").select("feedback_id"),
-      admin.from("feedback_comments").select("*").order("created_at", { ascending: true }),
+      supabase.from("feedback").select("*").order("created_at", { ascending: false }),
+      supabase.from("feedback_stars").select("feedback_id").eq("user_id", userId),
+      supabase.from("feedback_stars").select("feedback_id"),
+      supabase.from("feedback_comments").select("*").order("created_at", { ascending: true }),
     ]);
 
   if (feedbackResponse.error) {
